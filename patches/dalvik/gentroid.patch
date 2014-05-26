@@ -1,0 +1,243 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+new file mode 100644
+index 0000000..3934fb8
+--- /dev/null
++++ b/CMakeLists.txt
+@@ -0,0 +1,8 @@
++project(dalvik)
++cmake_minimum_required(VERSION 2.8)
++
++include(/usr/share/android/cmake/AndroidConfig.cmake)
++
++add_subdirectory(libdex)
++add_subdirectory(dexdump)
++add_subdirectory(dexlist)
+diff --git a/build.xml b/build.xml
+new file mode 100644
+index 0000000..11e814b
+--- /dev/null
++++ b/build.xml
+@@ -0,0 +1,68 @@
++<project name="dalvik" default="dist" basedir=".">
++    <description>
++        dalvik tools for Android
++    </description>
++	<property name="lib" location="lib"/>
++	<property name="dist" location="dist"/>
++	<property name="builddexgen" location="build/dexgen"/>
++	<property name="jardexgen" location="jar/dexgen"/>
++	<property name="builddx" location="build/dx"/>
++	<property name="jardx" location="jar/dx"/>
++	
++	<target name="compile" depends="compile-dexgen, compile-dx" description="compile the source for all" />
++
++	<target name="init" depends="init-dexgen, init-dx"/>
++
++	<target name="dist" depends="dist-dexgen, dist-dx"/>
++
++  	<target name="init-dexgen">
++    	<tstamp/>
++    	<mkdir dir="${builddexgen}"/>
++  	</target>
++  
++  	<target name="init-dx">
++  		<tstamp/>
++    	<mkdir dir="${builddx}"/>
++  	</target>
++
++
++  	<target name="compile-dexgen" depends="init-dexgen, dist-dx" description="compile dexgen" >
++		<javac source="7" target="1.7" encoding="UTF-8" destdir="${builddexgen}"  classpath="${lib}/core.jar">
++			<src path="dexgen/src"/>
++			<include name="src/main/java/**"/>
++		</javac>
++	</target>
++
++	<target name="compile-dx" depends="init-dx" description="compile dx">
++		<javac source="7" target="1.7" encoding="UTF-8" 
++			destdir="${builddx}" sourcepath="" srcdir="dx/src" classpath="${lib}/core.jar" />
++	</target>
++
++
++
++	<target name="dist-dexgen" depends="compile-dexgen"
++        description="generate dexgen jar" >
++    	<jar jarfile="${dist}/dexgen.jar" basedir="${builddexgen}"/>
++  	</target>
++
++ 
++
++  	<target name="dist-dx" depends="compile-dx"
++       description="generate  dx jar" >
++    	<jar jarfile="${dist}/dx.jar" basedir="${builddx}" >
++			<manifest>
++    	  		<attribute name="Main-Class"
++    	        	value="com.android.dx.command.Main"/>
++    		</manifest>
++		</jar>
++	</target>
++
++	
++  <target name="clean"
++        description="clean up" >
++    <!-- Delete the ${build} and ${dist} directory trees -->
++    <delete dir="${build}"/>
++    <delete dir="${dist}"/>
++  </target>
++
++</project>
+diff --git a/dexdump/CMakeLists.txt b/dexdump/CMakeLists.txt
+new file mode 100644
+index 0000000..df2b936
+--- /dev/null
++++ b/dexdump/CMakeLists.txt
+@@ -0,0 +1,11 @@
++project(dexdump)
++
++find_package(ZLIB REQUIRED)
++find_package(Android COMPONENTS syscore REQUIRED)
++
++include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/..  ${ANDROID_INCLUDE_DIRS})
++
++add_executable (${PROJECT_NAME} DexDump.cpp) 
++target_link_libraries(${PROJECT_NAME} dex ${ANDROID_LIBRARIES} ${ZLIB_LIBRARIES})
++
++install (TARGETS ${PROJECT_NAME} DESTINATION ${INSTALL_BIN_DIR})
+diff --git a/dexlist/CMakeLists.txt b/dexlist/CMakeLists.txt
+new file mode 100644
+index 0000000..b7ac3a1
+--- /dev/null
++++ b/dexlist/CMakeLists.txt
+@@ -0,0 +1,12 @@
++
++project(dexlist)
++
++find_package(ZLIB REQUIRED)
++find_package(Android COMPONENTS syscore REQUIRED)
++
++include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/..  ${ANDROID_INCLUDE_DIRS})
++
++add_executable (${PROJECT_NAME} DexList.cpp) 
++target_link_libraries(${PROJECT_NAME} dex ${ANDROID_LIBRARIES} ${ZLIB_LIBRARIES})
++
++install (TARGETS ${PROJECT_NAME} DESTINATION ${INSTALL_BIN_DIR})
+diff --git a/dexopt/CMakeLists.txt b/dexopt/CMakeLists.txt
+new file mode 100644
+index 0000000..fa0681a
+--- /dev/null
++++ b/dexopt/CMakeLists.txt
+@@ -0,0 +1,12 @@
++
++project(dexopt)
++
++find_package(ZLIB REQUIRED)
++find_package(Android REQUIRED)
++
++include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_CURRENT_SOURCE_DIR}/../vm  ${ANDROID_INCLUDE_DIRS})
++
++add_executable (${PROJECT_NAME} OptMain.cpp) 
++target_link_libraries(${PROJECT_NAME} dex ${ANDROID_LIBRARIES} ${ZLIB_LIBRARIES})
++
++install (TARGETS ${PROJECT_NAME} DESTINATION ${INSTALL_BIN_DIR})
+diff --git a/libdex/CMakeLists.txt b/libdex/CMakeLists.txt
+new file mode 100644
+index 0000000..ad577ea
+--- /dev/null
++++ b/libdex/CMakeLists.txt
+@@ -0,0 +1,41 @@
++project(libdex)
++
++
++find_package(Android REQUIRED)
++
++include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/.. ${ANDROID_INCLUDE_DIRS})
++
++
++set(SRC_LIST CmdUtils.cpp
++	DexCatch.cpp
++	DexClass.cpp
++	DexDataMap.cpp
++	DexDebugInfo.cpp
++	DexFile.cpp
++	DexInlines.cpp
++	DexOptData.cpp
++	DexOpcodes.cpp
++	DexProto.cpp
++	DexSwapVerify.cpp
++	DexUtf.cpp
++	InstrUtils.cpp
++	Leb128.cpp
++	OptInvocation.cpp
++	sha1.cpp
++	SysUtil.cpp)
++
++
++add_library(dex STATIC ${SRC_LIST})
++SET_TARGET_PROPERTIES(dex PROPERTIES COMPILE_FLAGS -fPIC)
++target_link_libraries(dex ${ANDROID_LIBRARIES})
++SET_TARGET_PROPERTIES(dex PROPERTIES LINK_FLAGS -Wl,--no-undefined)
++
++
++install(TARGETS dex DESTINATION ${INSTALL_LIB_DIR})
++install(DIRECTORY ${PROJECT_SOURCE_DIR} DESTINATION ${INSTALL_INCLUDE_DIR} FILES_MATCHING PATTERN "*.h")
++
++
++
++
++
++
+diff --git a/libdex/DexOptData.cpp b/libdex/DexOptData.cpp
+index dd41751..04e6f0d 100644
+--- a/libdex/DexOptData.cpp
++++ b/libdex/DexOptData.cpp
+@@ -83,7 +83,7 @@ bool dexParseOptData(const u1* data, size_t length, DexFile* pDexFile)
+     /* Process chunks until we see the end marker. */
+     while (*pOpt != kDexChunkEnd) {
+         if (!isValidPointer(pOpt + 2, pOptStart, pOptEnd)) {
+-            ALOGE("Bogus opt data content pointer at offset %u",
++            ALOGE("Bogus opt data content pointer at offset %lu",
+                     ((const u1*) pOpt) - data);
+             return false;
+         }
+@@ -99,8 +99,8 @@ bool dexParseOptData(const u1* data, size_t length, DexFile* pDexFile)
+         const u4* pNextOpt = pOpt + (roundedSize / sizeof(u4));
+ 
+         if (!isValidPointer(pNextOpt, pOptStart, pOptEnd)) {
+-            ALOGE("Opt data area problem for chunk of size %u at offset %u",
+-                    size, ((const u1*) pOpt) - data);
++            ALOGE("Opt data area problem for chunk of size %lu at offset %lu",
++                    (long int)size, ((const u1*) pOpt) - data);
+             return false;
+         }
+ 
+diff --git a/libdex/SysUtil.cpp b/libdex/SysUtil.cpp
+index ba82de2..7a0f3bd 100644
+--- a/libdex/SysUtil.cpp
++++ b/libdex/SysUtil.cpp
+@@ -30,7 +30,7 @@
+ #include <limits.h>
+ #include <errno.h>
+ 
+-#include <JNIHelp.h>        // TEMP_FAILURE_RETRY may or may not be in unistd
++#include <nativehelper/JNIHelp.h>        // TEMP_FAILURE_RETRY may or may not be in unistd
+ 
+ 
+ /*
+@@ -169,7 +169,7 @@ int sysMapFileInShmemWritableReadOnly(int fd, MemMapping* pMap)
+     if (mprotect(memPtr, length, PROT_READ) < 0) {
+         /* this fails with EACCESS on FAT filesystems, e.g. /sdcard */
+         int err = errno;
+-        ALOGV("mprotect(%p, %d, PROT_READ) failed: %s",
++        ALOGV("mprotect(%p, %zu, PROT_READ) failed: %s",
+             memPtr, length, strerror(err));
+         ALOGD("mprotect(RO) failed (%d), file will remain read-write", err);
+     }
+@@ -286,7 +286,7 @@ void sysReleaseShmem(MemMapping* pMap)
+         ALOGW("munmap(%p, %d) failed: %s",
+             pMap->baseAddr, (int)pMap->baseLength, strerror(errno));
+     } else {
+-        ALOGV("munmap(%p, %d) succeeded", pMap->baseAddr, pMap->baseLength);
++        ALOGV("munmap(%p, %zu) succeeded", pMap->baseAddr, pMap->baseLength);
+         pMap->baseAddr = NULL;
+         pMap->baseLength = 0;
+     }

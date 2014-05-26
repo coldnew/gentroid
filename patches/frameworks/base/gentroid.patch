@@ -1,0 +1,1552 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+new file mode 100644
+index 0000000..cda2643
+--- /dev/null
++++ b/CMakeLists.txt
+@@ -0,0 +1,15 @@
++project(android-base)
++cmake_minimum_required(VERSION 2.8)
++
++include(/usr/share/android/cmake/AndroidConfig.cmake)
++
++add_subdirectory(tools/aidl)
++add_subdirectory(tools/aapt)
++add_subdirectory(tools/obbtool)
++add_subdirectory(libs/androidfw)
++
++
++
++
++
++
+diff --git a/aapt.sh b/aapt.sh
+new file mode 100755
+index 0000000..9178f27
+--- /dev/null
++++ b/aapt.sh
+@@ -0,0 +1,2 @@
++#!/bin/bash
++aapt $@
+diff --git a/aidl.sh b/aidl.sh
+new file mode 100755
+index 0000000..6b94344
+--- /dev/null
++++ b/aidl.sh
+@@ -0,0 +1,2 @@
++#!/bin/bash
++aidl $@
+diff --git a/build.xml b/build.xml
+new file mode 100644
+index 0000000..dcf9f45
+--- /dev/null
++++ b/build.xml
+@@ -0,0 +1,161 @@
++
++
++<project name="framework" default="jar" basedir=".">
++    <description>
++       framework for Android
++    </description>
++	<property name="lib" location="lib"/>
++	<property name="dist" location="dist"/>
++	<property name="aidl" location="aidl"/>
++	<property name="aapt" location="aapt/java/com/android/internal"/>
++	<property name="jarjar" location="jarjar"/>
++	<property name="build" location="build"/>
++  
++	<import file="files.xml"/>
++
++
++	<path id="extlibs">
++		<fileset dir="lib">
++			<include name="*.jar"/>
++		</fileset>
++		<fileset dir="dist">
++			<include name="*.jar"/>
++		</fileset>
++	</path>
++
++	<target name="init">
++		<tstamp/>
++		<mkdir dir="${build}"/>
++		<tstamp/>
++		<mkdir dir="${dist}"/>
++		<tstamp/>
++		<mkdir dir="${aidl}"/>
++		<tstamp/>
++		<mkdir dir="${aapt}"/>
++	</target>
++
++
++	<target name="aapt" depends="init">
++		<property name="res" location="core/res"/>
++		<exec executable="./aapt.sh" failonerror="true" dir="." >
++			<arg value="p"/>
++			<arg value="-x"/>
++			<arg value="-S ${res}/res"/> 
++			<arg value="-M ${res}/AndroidManifest.xml"/>
++			<arg value="-A ${res}/assets"/>
++			<arg value="-J ${aapt}"/>
++		</exec>
++	</target>
++
++	<target name="framework.aidl" depends="init">
++		<pathconvert pathsep=" " property="preprocess.list"  refid="aidl.preprocess"/>
++		<exec executable="echo" failonerror="true" >  
++			<arg value="--preprocess framework.aidl"/>
++			<arg value="${preprocess.list}"/>
++		</exec>
++	</target>
++
++	<target name="aidl" depends="init">
++		<pathconvert pathsep=" " property="includes"  refid="framework.subdirs">
++			<mapper type="glob" from="*" to="-I*"/>
++		</pathconvert>
++		<apply executable="./aidl.sh" dest="${aidl}/" failonerror="true" >
++			<arg value="${includes}"/>
++			<srcfile/>
++			<targetfile/>
++			<filelist refid="aidl.framework" />
++			<mapper type="glob" from="*.aidl" to="*.java"/>
++		</apply>
++	</target>
++
++	<target name="repackage">
++		<taskdef name="jarjar" classname="com.tonicsystems.jarjar.JarJarTask"
++			classpath="${lib}/jarjar.jar"/>
++		<jarjar jarfile="${jarjar}/bcprov.jar">
++			<zipfileset src="${lib}/bcprov.jar"/>
++			<rule pattern="org.bouncycastle.**" result="com.android.org.bouncycastle.@1"/>
++		</jarjar>
++		<jarjar jarfile="${jarjar}/libphonenumber.jar">
++			<zipfileset src="${lib}/libphonenumber.jar"/>
++			<rule pattern="com.google.**" result="com.android.@1"/>
++		</jarjar>
++		<jarjar jarfile="${jarjar}/offline-geocoder.jar">
++			<zipfileset src="${lib}/offline-geocoder.jar"/>
++			<rule pattern="com.google.**" result="com.android.@1"/>
++		</jarjar>
++		<jarjar jarfile="${jarjar}/okhttp.jar">
++			<zipfileset src="${lib}/okhttp.jar"/>
++			<rule pattern="com.squareup.**" result="com.android.@1"/>
++		</jarjar>
++	</target>
++
++	<!-- depends="repackage,aidl,framework.aidl,aapt" -->
++	<target name="compile" >
++		<javac source="7" target="1.7" encoding="UTF-8" destdir="${build}" sourcepath="" includeantruntime="false" >
++			<classpath>
++				<pathelement location="${lib}/commons-codec.jar"/>
++				<pathelement location="${lib}/httpclient.jar"/>
++				<pathelement location="${lib}/httpcore.jar"/>
++				<pathelement location="${lib}/conscrypt.jar"/>
++				<pathelement location="${lib}/tagsoup.jar"/>
++				<pathelement location="${lib}/commons-logging.jar"/>
++				<pathelement location="${lib}/junit.jar"/>
++				<pathelement location="${jarjar}/bcprov.jar"/>
++				<pathelement location="${jarjar}/okhttp.jar"/>
++				<pathelement location="${jarjar}/libphonenumber.jar"/>
++				<pathelement location="${jarjar}/offline-geocoder.jar"/>
++			</classpath>
++			<bootclasspath path="lib/core.jar"/>
++			<compilerarg line="-Xmaxerrs 5000"/>
++			<src path="core/java"/>
++			<include name="**/*.java"/>
++			<exclude name="android/test/**"/>
++			<src path="graphics/java/"/>
++			<include name="**/*.java"/>
++			<src path="location/java/"/>
++			<include name="**/*.java"/>
++			<src path="media/java/"/>
++			<include name="**/*.java"/>
++			<src path="media/mca/effect/java"/>
++			<include name="**/*.java"/>
++			<src path="media/mca/filterfw/java"/>
++			<include name="**/*.java"/>
++			<src path="media/mca/filterpacks/java"/>
++			<include name="**/*.java"/>
++			<src path="drm/java"/>
++			<include name="**/*.java"/>
++			<src path="opengl/java"/>
++			<include name="**/*.java"/>
++			<src path="sax/java"/>
++			<include name="**/*.java"/>
++			<src path="telephony/java"/>
++			<include name="**/*.java"/>
++			<src path="wifi/java"/>
++			<include name="**/*.java"/>
++			<src path="keystore/java"/>
++			<include name="**/*.java"/>
++			<src path="rs/java"/>
++			<include name="**/*.java"/>
++			<src path="aapt/java"/>
++			<include name="**/*.java"/>
++			<src path="aidl"/>
++			<include name="**/*.java"/>
++		</javac>
++	</target>
++
++
++
++	<target name="jar" depends="compile" >
++		<jar jarfile="${dist}/android.jar" basedir="${build}" />
++	</target>
++	
++
++	<target name="clean">
++		<delete dir="${aidl}"/>
++		<delete dir="${aapt}"/>
++		<delete dir="${jarjar}"/>
++		<delete dir="${build}"/>
++		<delete dir="${dist}"/>
++	</target>
++
++</project>
+diff --git a/core/java/android/content/ContentResolver.java b/core/java/android/content/ContentResolver.java
+index 4e6cc92..c610161 100644
+--- a/core/java/android/content/ContentResolver.java
++++ b/core/java/android/content/ContentResolver.java
+@@ -2210,7 +2210,7 @@ public abstract class ContentResolver {
+         String blockingPackage = AppGlobals.getInitialPackage();
+ 
+         EventLog.writeEvent(
+-            EventLogTags.CONTENT_QUERY_SAMPLE,
++            80001,
+             uri.toString(),
+             projectionBuffer.toString(),
+             selection != null ? selection : "",
+@@ -2233,7 +2233,7 @@ public abstract class ContentResolver {
+         }
+         String blockingPackage = AppGlobals.getInitialPackage();
+         EventLog.writeEvent(
+-            EventLogTags.CONTENT_UPDATE_SAMPLE,
++            80002,
+             uri.toString(),
+             operation,
+             selection != null ? selection : "",
+diff --git a/core/java/android/net/SSLCertificateSocketFactory.java b/core/java/android/net/SSLCertificateSocketFactory.java
+index b0278d3..962a847 100644
+--- a/core/java/android/net/SSLCertificateSocketFactory.java
++++ b/core/java/android/net/SSLCertificateSocketFactory.java
+@@ -155,11 +155,13 @@ public class SSLCertificateSocketFactory extends SSLSocketFactory {
+      * @param cache The {@link SSLSessionCache} to use, or null for no cache.
+      * @return a new SocketFactory with the specified parameters
+      */
++	/* Not in the original library
+     public static org.apache.http.conn.ssl.SSLSocketFactory getHttpSocketFactory(
+             int handshakeTimeoutMillis, SSLSessionCache cache) {
+         return new org.apache.http.conn.ssl.SSLSocketFactory(
+-                new SSLCertificateSocketFactory(handshakeTimeoutMillis, cache, true));
++                (SSLSocketFactory)(new SSLCertificateSocketFactory(handshakeTimeoutMillis, cache, true)));
+     }
++	*/
+ 
+     /**
+      * Verify the hostname of the certificate used by the other end of a
+diff --git a/core/java/android/net/http/AndroidHttpClient.java b/core/java/android/net/http/AndroidHttpClient.java
+index 04f3974..25b704dd 100644
+--- a/core/java/android/net/http/AndroidHttpClient.java
++++ b/core/java/android/net/http/AndroidHttpClient.java
+@@ -132,9 +132,10 @@ public final class AndroidHttpClient implements HttpClient {
+         SchemeRegistry schemeRegistry = new SchemeRegistry();
+         schemeRegistry.register(new Scheme("http",
+                 PlainSocketFactory.getSocketFactory(), 80));
+-        schemeRegistry.register(new Scheme("https",
++		// Android only code
++        /*schemeRegistry.register(new Scheme("https",
+                 SSLCertificateSocketFactory.getHttpSocketFactory(
+-                SOCKET_OPERATION_TIMEOUT, sessionCache), 443));
++                SOCKET_OPERATION_TIMEOUT, sessionCache), 443));*/
+ 
+         ClientConnectionManager manager =
+                 new ThreadSafeClientConnManager(params, schemeRegistry);
+diff --git a/core/java/android/speech/tts/EventLogger.java b/core/java/android/speech/tts/EventLogger.java
+index 82ed4dd..a6e050c 100644
+--- a/core/java/android/speech/tts/EventLogger.java
++++ b/core/java/android/speech/tts/EventLogger.java
+@@ -124,9 +124,10 @@ class EventLogger {
+         // onAudioDataWritten() should normally always be called if an
+         // error does not occur.
+         if (mError || mPlaybackStartTime == -1 || mEngineCompleteTime == -1) {
+-            EventLogTags.writeTtsSpeakFailure(mServiceApp, mCallerUid, mCallerPid,
+-                    getUtteranceLength(), getLocaleString(),
+-                    mRequest.getSpeechRate(), mRequest.getPitch());
++
++            //EventLogTags.writeTtsSpeakFailure(mServiceApp, mCallerUid, mCallerPid,
++            //        getUtteranceLength(), getLocaleString(),
++            //        mRequest.getSpeechRate(), mRequest.getPitch());
+             return;
+         }
+ 
+@@ -141,10 +142,10 @@ class EventLogger {
+         final long engineLatency = mEngineStartTime - mRequestProcessingStartTime;
+         final long engineTotal = mEngineCompleteTime - mRequestProcessingStartTime;
+ 
+-        EventLogTags.writeTtsSpeakSuccess(mServiceApp, mCallerUid, mCallerPid,
+-                getUtteranceLength(), getLocaleString(),
+-                mRequest.getSpeechRate(), mRequest.getPitch(),
+-                engineLatency, engineTotal, audioLatency);
++        //EventLogTags.writeTtsSpeakSuccess(mServiceApp, mCallerUid, mCallerPid,
++        //        getUtteranceLength(), getLocaleString(),
++        //        mRequest.getSpeechRate(), mRequest.getPitch(),
++        //        engineLatency, engineTotal, audioLatency);
+     }
+ 
+     /**
+diff --git a/files.xml b/files.xml
+new file mode 100644
+index 0000000..af6fa91
+--- /dev/null
++++ b/files.xml
+@@ -0,0 +1,304 @@
++<project>
++
++ <filelist 
++    id="framework.subdirs" dir="."
++    files= "core/java
++	          graphics/java
++	          location/java
++	          media/java
++	          media/mca/effect/java
++	          media/mca/filterfw/java
++	          media/mca/filterpacks/java
++	          drm/java
++	          opengl/java
++	          sax/java
++	          telephony/java
++	          wifi/java
++	          keystore/java
++	          rs"/>
++
++  <filelist 
++    id="aidl.framework" dir="."
++    files= "core/java/android/accessibilityservice/IAccessibilityServiceConnection.aidl
++	          core/java/android/accessibilityservice/IAccessibilityServiceClient.aidl
++	          core/java/android/accounts/IAccountManager.aidl
++	          core/java/android/accounts/IAccountManagerResponse.aidl
++	          core/java/android/accounts/IAccountAuthenticator.aidl
++	          core/java/android/accounts/IAccountAuthenticatorResponse.aidl
++	          core/java/android/app/IActivityController.aidl
++	          core/java/android/app/IActivityPendingResult.aidl
++	          core/java/android/app/IAlarmManager.aidl 
++	          core/java/android/app/IBackupAgent.aidl
++	          core/java/android/app/IInstrumentationWatcher.aidl
++	          core/java/android/app/INotificationManager.aidl
++	          core/java/android/app/IProcessObserver.aidl
++	          core/java/android/app/ISearchManager.aidl
++	          core/java/android/app/ISearchManagerCallback.aidl
++	          core/java/android/app/IServiceConnection.aidl
++	          core/java/android/app/IStopUserCallback.aidl
++	          core/java/android/app/IThumbnailReceiver.aidl
++	          core/java/android/app/IThumbnailRetriever.aidl
++	          core/java/android/app/ITransientNotification.aidl
++	          core/java/android/app/IUiAutomationConnection.aidl
++	          core/java/android/app/IUiModeManager.aidl
++	          core/java/android/app/IUserSwitchObserver.aidl
++	          core/java/android/app/IWallpaperManager.aidl
++	          core/java/android/app/IWallpaperManagerCallback.aidl
++	          core/java/android/app/admin/IDevicePolicyManager.aidl
++	          core/java/android/app/backup/IBackupManager.aidl
++	          core/java/android/app/backup/IFullBackupRestoreObserver.aidl
++	          core/java/android/app/backup/IRestoreObserver.aidl
++	          core/java/android/app/backup/IRestoreSession.aidl
++	          core/java/android/bluetooth/IBluetooth.aidl
++	          core/java/android/bluetooth/IBluetoothA2dp.aidl
++	          core/java/android/bluetooth/IBluetoothCallback.aidl
++	          core/java/android/bluetooth/IBluetoothHeadset.aidl
++	          core/java/android/bluetooth/IBluetoothHeadsetPhone.aidl
++	          core/java/android/bluetooth/IBluetoothHealth.aidl
++	          core/java/android/bluetooth/IBluetoothHealthCallback.aidl
++	          core/java/android/bluetooth/IBluetoothInputDevice.aidl
++	          core/java/android/bluetooth/IBluetoothPan.aidl
++	          core/java/android/bluetooth/IBluetoothManager.aidl
++	          core/java/android/bluetooth/IBluetoothManagerCallback.aidl
++	          core/java/android/bluetooth/IBluetoothPbap.aidl
++	          core/java/android/bluetooth/IBluetoothMap.aidl
++	          core/java/android/bluetooth/IBluetoothStateChangeCallback.aidl
++	          core/java/android/bluetooth/IBluetoothGatt.aidl
++	          core/java/android/bluetooth/IBluetoothGattCallback.aidl
++	          core/java/android/bluetooth/IBluetoothGattServerCallback.aidl
++	          core/java/android/content/IClipboard.aidl
++	          core/java/android/content/IContentService.aidl
++	          core/java/android/content/IIntentReceiver.aidl
++	          core/java/android/content/IIntentSender.aidl
++	          core/java/android/content/IOnPrimaryClipChangedListener.aidl
++	          core/java/android/content/IAnonymousSyncAdapter.aidl
++	          core/java/android/content/ISyncAdapter.aidl
++	          core/java/android/content/ISyncContext.aidl
++	          core/java/android/content/ISyncStatusObserver.aidl
++	          core/java/android/content/pm/IPackageDataObserver.aidl
++	          core/java/android/content/pm/IPackageDeleteObserver.aidl
++	          core/java/android/content/pm/IPackageInstallObserver.aidl
++	          core/java/android/content/pm/IPackageManager.aidl
++	          core/java/android/content/pm/IPackageMoveObserver.aidl
++	          core/java/android/content/pm/IPackageStatsObserver.aidl
++	          core/java/android/database/IContentObserver.aidl
++	          core/java/android/hardware/ICameraService.aidl
++	          core/java/android/hardware/ICameraServiceListener.aidl
++	          core/java/android/hardware/ICamera.aidl
++	          core/java/android/hardware/ICameraClient.aidl
++	          core/java/android/hardware/IConsumerIrService.aidl
++	          core/java/android/hardware/IProCameraUser.aidl
++	          core/java/android/hardware/IProCameraCallbacks.aidl
++	          core/java/android/hardware/camera2/ICameraDeviceUser.aidl
++	          core/java/android/hardware/camera2/ICameraDeviceCallbacks.aidl
++	          core/java/android/hardware/ISerialManager.aidl
++	          core/java/android/hardware/display/IDisplayManager.aidl
++	          core/java/android/hardware/display/IDisplayManagerCallback.aidl
++	          core/java/android/hardware/input/IInputManager.aidl
++	          core/java/android/hardware/input/IInputDevicesChangedListener.aidl
++	          core/java/android/hardware/location/IFusedLocationHardware.aidl
++	          core/java/android/hardware/location/IFusedLocationHardwareSink.aidl
++	          core/java/android/hardware/location/IGeofenceHardware.aidl
++	          core/java/android/hardware/location/IGeofenceHardwareCallback.aidl
++	          core/java/android/hardware/location/IGeofenceHardwareMonitorCallback.aidl
++	          core/java/android/hardware/usb/IUsbManager.aidl
++	          core/java/android/net/IConnectivityManager.aidl
++	          core/java/android/net/INetworkManagementEventObserver.aidl
++	          core/java/android/net/INetworkPolicyListener.aidl
++	          core/java/android/net/INetworkPolicyManager.aidl
++	          core/java/android/net/INetworkStatsService.aidl
++	          core/java/android/net/INetworkStatsSession.aidl
++	          core/java/android/net/nsd/INsdManager.aidl
++	          core/java/android/nfc/IAppCallback.aidl
++	          core/java/android/nfc/INfcAdapter.aidl
++	          core/java/android/nfc/INfcAdapterExtras.aidl
++	          core/java/android/nfc/INfcTag.aidl
++	          core/java/android/nfc/INfcCardEmulation.aidl
++	          core/java/android/os/IBatteryPropertiesListener.aidl
++	          core/java/android/os/IBatteryPropertiesRegistrar.aidl
++	          core/java/android/os/ICancellationSignal.aidl
++	          core/java/android/os/IHardwareService.aidl
++	          core/java/android/os/IMessenger.aidl
++	          core/java/android/os/INetworkManagementService.aidl
++	          core/java/android/os/IPermissionController.aidl
++	          core/java/android/os/IPowerManager.aidl
++	          core/java/android/os/IRemoteCallback.aidl
++	          core/java/android/os/ISchedulingPolicyService.aidl
++	          core/java/android/os/IUpdateLock.aidl
++	          core/java/android/os/IUserManager.aidl
++	          core/java/android/os/IVibratorService.aidl
++	          core/java/android/service/notification/INotificationListener.aidl
++	          core/java/android/print/ILayoutResultCallback.aidl
++	          core/java/android/print/IPrinterDiscoveryObserver.aidl
++	          core/java/android/print/IPrintDocumentAdapter.aidl
++	          core/java/android/print/IPrintDocumentAdapterObserver.aidl
++	          core/java/android/print/IPrintJobStateChangeListener.aidl
++	          core/java/android/print/IPrintManager.aidl
++	          core/java/android/print/IPrintSpooler.aidl
++	          core/java/android/print/IPrintSpoolerCallbacks.aidl
++	          core/java/android/print/IPrintSpoolerClient.aidl
++	          core/java/android/print/IWriteResultCallback.aidl
++	          core/java/android/printservice/IPrintService.aidl
++	          core/java/android/printservice/IPrintServiceClient.aidl
++	          core/java/android/service/dreams/IDreamManager.aidl
++	          core/java/android/service/dreams/IDreamService.aidl
++	          core/java/android/service/wallpaper/IWallpaperConnection.aidl
++	          core/java/android/service/wallpaper/IWallpaperEngine.aidl
++	          core/java/android/service/wallpaper/IWallpaperService.aidl
++	          core/java/android/view/accessibility/IAccessibilityInteractionConnection.aidl\
++	          core/java/android/view/accessibility/IAccessibilityInteractionConnectionCallback.aidl\
++	          core/java/android/view/accessibility/IAccessibilityManager.aidl
++	          core/java/android/view/accessibility/IAccessibilityManagerClient.aidl
++	          core/java/android/view/IApplicationToken.aidl
++	          core/java/android/view/IAssetAtlas.aidl
++	          core/java/android/view/IMagnificationCallbacks.aidl
++	          core/java/android/view/IInputFilter.aidl
++	          core/java/android/view/IInputFilterHost.aidl
++	          core/java/android/view/IOnKeyguardExitResult.aidl
++	          core/java/android/view/IRotationWatcher.aidl
++	          core/java/android/view/IWindow.aidl
++	          core/java/android/view/IWindowFocusObserver.aidl
++	          core/java/android/view/IWindowId.aidl
++	          core/java/android/view/IWindowManager.aidl
++	          core/java/android/view/IWindowSession.aidl
++	          core/java/android/speech/IRecognitionListener.aidl
++	          core/java/android/speech/IRecognitionService.aidl
++	          core/java/android/speech/tts/ITextToSpeechCallback.aidl
++	          core/java/android/speech/tts/ITextToSpeechService.aidl
++	          core/java/com/android/internal/app/IAppOpsCallback.aidl
++	          core/java/com/android/internal/app/IAppOpsService.aidl
++	          core/java/com/android/internal/app/IBatteryStats.aidl
++	          core/java/com/android/internal/app/IProcessStats.aidl
++	          core/java/com/android/internal/app/IUsageStats.aidl
++	          core/java/com/android/internal/app/IMediaContainerService.aidl
++	          core/java/com/android/internal/appwidget/IAppWidgetService.aidl
++	          core/java/com/android/internal/appwidget/IAppWidgetHost.aidl
++	          core/java/com/android/internal/backup/IBackupTransport.aidl
++	          core/java/com/android/internal/backup/IObbBackupService.aidl
++	          core/java/com/android/internal/policy/IFaceLockCallback.aidl
++	          core/java/com/android/internal/policy/IFaceLockInterface.aidl
++	          core/java/com/android/internal/policy/IKeyguardShowCallback.aidl
++	          core/java/com/android/internal/policy/IKeyguardExitCallback.aidl
++	          core/java/com/android/internal/policy/IKeyguardService.aidl
++	          core/java/com/android/internal/os/IDropBoxManagerService.aidl
++	          core/java/com/android/internal/os/IResultReceiver.aidl
++	          core/java/com/android/internal/statusbar/IStatusBar.aidl
++	          core/java/com/android/internal/statusbar/IStatusBarService.aidl
++	          core/java/com/android/internal/textservice/ISpellCheckerService.aidl
++	          core/java/com/android/internal/textservice/ISpellCheckerSession.aidl
++	          core/java/com/android/internal/textservice/ISpellCheckerSessionListener.aidl
++	          core/java/com/android/internal/textservice/ITextServicesManager.aidl
++	          core/java/com/android/internal/textservice/ITextServicesSessionListener.aidl
++	          core/java/com/android/internal/view/IInputContext.aidl
++	          core/java/com/android/internal/view/IInputContextCallback.aidl
++	          core/java/com/android/internal/view/IInputMethod.aidl
++	          core/java/com/android/internal/view/IInputMethodClient.aidl
++	          core/java/com/android/internal/view/IInputMethodManager.aidl
++	          core/java/com/android/internal/view/IInputMethodSession.aidl
++	          core/java/com/android/internal/view/IInputSessionCallback.aidl
++	          core/java/com/android/internal/widget/ILockSettings.aidl
++	          core/java/com/android/internal/widget/IRemoteViewsFactory.aidl
++	          core/java/com/android/internal/widget/IRemoteViewsAdapterConnection.aidl
++	          keystore/java/android/security/IKeyChainAliasCallback.aidl
++	          keystore/java/android/security/IKeyChainService.aidl
++	          location/java/android/location/ICountryDetector.aidl
++	          location/java/android/location/ICountryListener.aidl
++	          location/java/android/location/IFusedProvider.aidl
++	          location/java/android/location/IGeocodeProvider.aidl
++	          location/java/android/location/IGeofenceProvider.aidl
++	          location/java/android/location/IGpsStatusListener.aidl
++	          location/java/android/location/IGpsStatusProvider.aidl
++	          location/java/android/location/ILocationListener.aidl
++	          location/java/android/location/ILocationManager.aidl
++	          location/java/android/location/IFusedGeofenceHardware.aidl
++	          location/java/android/location/IGpsGeofenceHardware.aidl
++	          location/java/android/location/INetInitiatedListener.aidl
++	          location/java/com/android/internal/location/ILocationProvider.aidl
++	          media/java/android/media/IAudioService.aidl
++	          media/java/android/media/IAudioFocusDispatcher.aidl
++	          media/java/android/media/IAudioRoutesObserver.aidl
++	          media/java/android/media/IMediaRouterClient.aidl
++	          media/java/android/media/IMediaRouterService.aidl
++	          media/java/android/media/IMediaScannerListener.aidl
++	          media/java/android/media/IMediaScannerService.aidl
++	          media/java/android/media/IRemoteControlClient.aidl
++	          media/java/android/media/IRemoteControlDisplay.aidl
++	          media/java/android/media/IRemoteDisplayCallback.aidl
++	          media/java/android/media/IRemoteDisplayProvider.aidl
++	          media/java/android/media/IRemoteVolumeObserver.aidl
++	          media/java/android/media/IRingtonePlayer.aidl
++	          telephony/java/com/android/internal/telephony/IPhoneStateListener.aidl
++	          telephony/java/com/android/internal/telephony/IPhoneSubInfo.aidl
++	          telephony/java/com/android/internal/telephony/ITelephony.aidl
++	          telephony/java/com/android/internal/telephony/ISms.aidl
++	          telephony/java/com/android/internal/telephony/ITelephonyRegistry.aidl
++	          telephony/java/com/android/internal/telephony/IWapPushManager.aidl
++	          wifi/java/android/net/wifi/IWifiManager.aidl
++	          wifi/java/android/net/wifi/p2p/IWifiP2pManager.aidl
++	          packages/services/PacProcessor/com/android/net/IProxyService.aidl
++	          packages/services/Proxy/com/android/net/IProxyCallback.aidl
++	          packages/services/Proxy/com/android/net/IProxyPortListener.aidl"/> 
++
++  <filelist 
++    id="aidl.preprocess"  dir="."
++    files= "core/java/android/accounts/IAccountManager.aidl
++            core/java/android/accounts/IAccountManagerResponse.aidl
++            core/java/android/accounts/IAccountAuthenticator.aidl
++            core/java/android/accounts/IAccountAuthenticatorResponse.aidl
++            core/java/android/app/Notification.aidl
++            core/java/android/app/PendingIntent.aidl
++            core/java/android/appwidget/AppWidgetProviderInfo.aidl
++            core/java/android/bluetooth/BluetoothDevice.aidl
++            core/java/android/bluetooth/BluetoothHealthAppConfiguration.aidl
++            core/java/android/content/ComponentName.aidl
++            core/java/android/content/ContentValues.aidl
++            core/java/android/content/Intent.aidl
++            core/java/android/content/IntentSender.aidl
++            core/java/android/content/PeriodicSync.aidl
++            core/java/android/content/SyncRequest.aidl
++            core/java/android/content/SyncStats.aidl
++            core/java/android/content/res/Configuration.aidl
++            core/java/android/database/CursorWindow.aidl
++            core/java/android/hardware/location/GeofenceHardwareRequestParcelable.aidl
++            core/java/android/net/Uri.aidl
++            core/java/android/nfc/NdefMessage.aidl
++            core/java/android/nfc/NdefRecord.aidl
++            core/java/android/nfc/Tag.aidl
++            core/java/android/os/Bundle.aidl
++            core/java/android/os/DropBoxManager.aidl
++            core/java/android/os/ParcelFileDescriptor.aidl
++            core/java/android/os/ParcelUuid.aidl
++            core/java/android/view/KeyEvent.aidl
++            core/java/android/view/MotionEvent.aidl
++            core/java/android/view/Surface.aidl
++            core/java/android/view/WindowManager.aidl
++            core/java/android/widget/RemoteViews.aidl
++            core/java/com/android/internal/textservice/ISpellCheckerService.aidl
++            core/java/com/android/internal/textservice/ISpellCheckerSession.aidl
++            core/java/com/android/internal/textservice/ISpellCheckerSessionListener.aidl
++            core/java/com/android/internal/textservice/ITextServicesManager.aidl
++            core/java/com/android/internal/textservice/ITextServicesSessionListener.aidl
++            core/java/com/android/internal/view/IInputContext.aidl
++            core/java/com/android/internal/view/IInputMethod.aidl
++            core/java/com/android/internal/view/IInputMethodClient.aidl
++            core/java/com/android/internal/view/IInputMethodManager.aidl
++            core/java/com/android/internal/view/IInputMethodSession.aidl
++            graphics/java/android/graphics/Bitmap.aidl
++            graphics/java/android/graphics/Rect.aidl
++            graphics/java/android/graphics/Region.aidl
++            location/java/android/location/Criteria.aidl
++            location/java/android/location/Geofence.aidl
++            location/java/android/location/Location.aidl
++            location/java/android/location/LocationRequest.aidl
++            location/java/android/location/FusedBatchOptions.aidl
++            location/java/com/android/internal/location/ProviderProperties.aidl
++            location/java/com/android/internal/location/ProviderRequest.aidl
++            telephony/java/android/telephony/ServiceState.aidl
++            telephony/java/com/android/internal/telephony/IPhoneSubInfo.aidl
++            telephony/java/com/android/internal/telephony/ITelephony.aidl
++            wifi/java/android/net/wifi/BatchedScanSettings.aidl
++            wifi/java/android/net/wifi/BatchedScanResult.aidl" />
++
++
++</project>
++
+diff --git a/include/androidfw/ResourceTypes.h b/include/androidfw/ResourceTypes.h
+index b334aab..58f2af2 100644
+--- a/include/androidfw/ResourceTypes.h
++++ b/include/androidfw/ResourceTypes.h
+@@ -31,7 +31,7 @@
+ #include <stdint.h>
+ #include <sys/types.h>
+ 
+-#include <android/configuration.h>
++#include "configuration.h"
+ 
+ namespace android {
+ 
+diff --git a/include/androidfw/configuration.h b/include/androidfw/configuration.h
+new file mode 100644
+index 0000000..eea5004
+--- /dev/null
++++ b/include/androidfw/configuration.h
+@@ -0,0 +1,125 @@
++/*
++ * Copyright (C) 2010 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef ANDROID_CONFIGURATION_H
++#define ANDROID_CONFIGURATION_H
++
++//#include "asset_manager.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++struct AConfiguration;
++typedef struct AConfiguration AConfiguration;
++
++enum {
++    ACONFIGURATION_ORIENTATION_ANY  = 0x0000,
++    ACONFIGURATION_ORIENTATION_PORT = 0x0001,
++    ACONFIGURATION_ORIENTATION_LAND = 0x0002,
++    ACONFIGURATION_ORIENTATION_SQUARE = 0x0003,
++
++    ACONFIGURATION_TOUCHSCREEN_ANY  = 0x0000,
++    ACONFIGURATION_TOUCHSCREEN_NOTOUCH  = 0x0001,
++    ACONFIGURATION_TOUCHSCREEN_STYLUS  = 0x0002,
++    ACONFIGURATION_TOUCHSCREEN_FINGER  = 0x0003,
++
++    ACONFIGURATION_DENSITY_DEFAULT = 0,
++    ACONFIGURATION_DENSITY_LOW = 120,
++    ACONFIGURATION_DENSITY_MEDIUM = 160,
++    ACONFIGURATION_DENSITY_TV = 213,
++    ACONFIGURATION_DENSITY_HIGH = 240,
++    ACONFIGURATION_DENSITY_XHIGH = 320,
++    ACONFIGURATION_DENSITY_XXHIGH = 480,
++    ACONFIGURATION_DENSITY_XXXHIGH = 640,
++    ACONFIGURATION_DENSITY_NONE = 0xffff,
++
++    ACONFIGURATION_KEYBOARD_ANY  = 0x0000,
++    ACONFIGURATION_KEYBOARD_NOKEYS  = 0x0001,
++    ACONFIGURATION_KEYBOARD_QWERTY  = 0x0002,
++    ACONFIGURATION_KEYBOARD_12KEY  = 0x0003,
++
++    ACONFIGURATION_NAVIGATION_ANY  = 0x0000,
++    ACONFIGURATION_NAVIGATION_NONAV  = 0x0001,
++    ACONFIGURATION_NAVIGATION_DPAD  = 0x0002,
++    ACONFIGURATION_NAVIGATION_TRACKBALL  = 0x0003,
++    ACONFIGURATION_NAVIGATION_WHEEL  = 0x0004,
++
++    ACONFIGURATION_KEYSHIDDEN_ANY = 0x0000,
++    ACONFIGURATION_KEYSHIDDEN_NO = 0x0001,
++    ACONFIGURATION_KEYSHIDDEN_YES = 0x0002,
++    ACONFIGURATION_KEYSHIDDEN_SOFT = 0x0003,
++
++    ACONFIGURATION_NAVHIDDEN_ANY = 0x0000,
++    ACONFIGURATION_NAVHIDDEN_NO = 0x0001,
++    ACONFIGURATION_NAVHIDDEN_YES = 0x0002,
++
++    ACONFIGURATION_SCREENSIZE_ANY  = 0x00,
++    ACONFIGURATION_SCREENSIZE_SMALL = 0x01,
++    ACONFIGURATION_SCREENSIZE_NORMAL = 0x02,
++    ACONFIGURATION_SCREENSIZE_LARGE = 0x03,
++    ACONFIGURATION_SCREENSIZE_XLARGE = 0x04,
++
++    ACONFIGURATION_SCREENLONG_ANY = 0x00,
++    ACONFIGURATION_SCREENLONG_NO = 0x1,
++    ACONFIGURATION_SCREENLONG_YES = 0x2,
++
++    ACONFIGURATION_UI_MODE_TYPE_ANY = 0x00,
++    ACONFIGURATION_UI_MODE_TYPE_NORMAL = 0x01,
++    ACONFIGURATION_UI_MODE_TYPE_DESK = 0x02,
++    ACONFIGURATION_UI_MODE_TYPE_CAR = 0x03,
++    ACONFIGURATION_UI_MODE_TYPE_TELEVISION = 0x04,
++    ACONFIGURATION_UI_MODE_TYPE_APPLIANCE = 0x05,
++
++    ACONFIGURATION_UI_MODE_NIGHT_ANY = 0x00,
++    ACONFIGURATION_UI_MODE_NIGHT_NO = 0x1,
++    ACONFIGURATION_UI_MODE_NIGHT_YES = 0x2,
++
++    ACONFIGURATION_SCREEN_WIDTH_DP_ANY = 0x0000,
++
++    ACONFIGURATION_SCREEN_HEIGHT_DP_ANY = 0x0000,
++
++    ACONFIGURATION_SMALLEST_SCREEN_WIDTH_DP_ANY = 0x0000,
++
++    ACONFIGURATION_LAYOUTDIR_ANY  = 0x00,
++    ACONFIGURATION_LAYOUTDIR_LTR  = 0x01,
++    ACONFIGURATION_LAYOUTDIR_RTL  = 0x02,
++
++    ACONFIGURATION_MCC = 0x0001,
++    ACONFIGURATION_MNC = 0x0002,
++    ACONFIGURATION_LOCALE = 0x0004,
++    ACONFIGURATION_TOUCHSCREEN = 0x0008,
++    ACONFIGURATION_KEYBOARD = 0x0010,
++    ACONFIGURATION_KEYBOARD_HIDDEN = 0x0020,
++    ACONFIGURATION_NAVIGATION = 0x0040,
++    ACONFIGURATION_ORIENTATION = 0x0080,
++    ACONFIGURATION_DENSITY = 0x0100,
++    ACONFIGURATION_SCREEN_SIZE = 0x0200,
++    ACONFIGURATION_VERSION = 0x0400,
++    ACONFIGURATION_SCREEN_LAYOUT = 0x0800,
++    ACONFIGURATION_UI_MODE = 0x1000,
++    ACONFIGURATION_SMALLEST_SCREEN_SIZE = 0x2000,
++    ACONFIGURATION_LAYOUTDIR = 0x4000,
++
++    ACONFIGURATION_MNC_ZERO = 0xffff,
++};
++
++
++#ifdef __cplusplus
++};
++#endif
++
++#endif // ANDROID_CONFIGURATION_H
+diff --git a/libs/androidfw/BackupHelpers.cpp b/libs/androidfw/BackupHelpers.cpp
+index 52dce9f..ee2e9cb 100644
+--- a/libs/androidfw/BackupHelpers.cpp
++++ b/libs/androidfw/BackupHelpers.cpp
+@@ -781,7 +781,7 @@ RestoreHelperBase::WriteFile(const String8& filename, BackupDataReader* in)
+         ALOGW("Could not open file %s -- %s", filename.string(), strerror(errno));
+         return errno;
+     }
+-
++    
+     while ((amt = in->ReadEntityData(buf, RESTORE_BUF_SIZE)) > 0) {
+         err = write(fd, buf, amt);
+         if (err != amt) {
+diff --git a/libs/androidfw/CMakeLists.txt b/libs/androidfw/CMakeLists.txt
+new file mode 100644
+index 0000000..d7dd336
+--- /dev/null
++++ b/libs/androidfw/CMakeLists.txt
+@@ -0,0 +1,29 @@
++project(androidfw)
++
++
++find_package(ZLIB REQUIRED)
++find_package(Android COMPONENTS syscore REQUIRED)
++
++include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/../../include ${ANDROID_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIR})
++
++set(SRC_LIST 	
++    Asset.cpp
++    AssetDir.cpp
++    AssetManager.cpp
++    misc.cpp
++    ObbFile.cpp
++    ResourceTypes.cpp
++    StreamingZipInflater.cpp
++    ZipFileRO.cpp
++    ZipUtils.cpp
++	  BackupData.cpp
++    BackupHelpers.cpp)
++
++add_library(androidfw SHARED ${SRC_LIST})
++SET_TARGET_PROPERTIES(androidfw PROPERTIES LINK_FLAGS -Wl,--no-undefined)
++target_link_libraries(androidfw ${ANDROID_LIBRARIES} ${ZLIB_LIBRARIES})
++
++install(TARGETS androidfw DESTINATION ${INSTALL_LIB_DIR})
++install(DIRECTORY ${PROJECT_SOURCE_DIR}/../../include/androidfw DESTINATION ${INSTALL_INCLUDE_DIR} FILES_MATCHING PATTERN "*.h")
++
++
+diff --git a/libs/androidfw/ObbFile.cpp b/libs/androidfw/ObbFile.cpp
+index ec59f06..195fa9a 100644
+--- a/libs/androidfw/ObbFile.cpp
++++ b/libs/androidfw/ObbFile.cpp
+@@ -122,7 +122,7 @@ bool ObbFile::parseObbFile(int fd)
+         if (fileLength < 0) {
+             ALOGW("error seeking in ObbFile: %s\n", strerror(errno));
+         } else {
+-            ALOGW("file is only %lld (less than %d minimum)\n", fileLength, kFooterMinSize);
++            ALOGW("file is only %lld (less than %d minimum)\n", (long long int)fileLength, kFooterMinSize);
+         }
+         return false;
+     }
+@@ -150,8 +150,8 @@ bool ObbFile::parseObbFile(int fd)
+         footerSize = get4LE((unsigned char*)footer);
+         if (footerSize > (size_t)fileLength - kFooterTagSize
+                 || footerSize > kMaxBufSize) {
+-            ALOGW("claimed footer size is too large (0x%08zx; file size is 0x%08llx)\n",
+-                    footerSize, fileLength);
++            ALOGW("claimed footer size is too large (0x%08zx; file size is 0x%08lld)\n",
++                    footerSize, (long long int)fileLength);
+             return false;
+         }
+ 
+@@ -164,7 +164,7 @@ bool ObbFile::parseObbFile(int fd)
+ 
+     off64_t fileOffset = fileLength - footerSize - kFooterTagSize;
+     if (lseek64(fd, fileOffset, SEEK_SET) != fileOffset) {
+-        ALOGW("seek %lld failed: %s\n", fileOffset, strerror(errno));
++        ALOGW("seek %lld failed: %s\n", (long long int)fileOffset, strerror(errno));
+         return false;
+     }
+ 
+diff --git a/libs/androidfw/ResourceTypes.cpp b/libs/androidfw/ResourceTypes.cpp
+index 1ffe665..b7eddfe 100644
+--- a/libs/androidfw/ResourceTypes.cpp
++++ b/libs/androidfw/ResourceTypes.cpp
+@@ -298,7 +298,7 @@ static status_t getIdmapPackageId(const uint32_t* map, size_t mapSize, uint32_t
+         if (--typeCount == 0) {
+             ALOGW("corrupt idmap: types declared, none found\n");
+             return UNKNOWN_ERROR;
+-        }
++    }
+     }
+ 
+     // determine package id from first entry of first type
+@@ -1266,7 +1266,7 @@ ResXMLParser::event_code_t ResXMLParser::nextNode()
+         const ResXMLTree_node* next = (const ResXMLTree_node*)
+             (((const uint8_t*)mCurNode) + dtohl(mCurNode->header.size));
+         //ALOGW("Next node: prev=%p, next=%p\n", mCurNode, next);
+-
++        
+         if (((const uint8_t*)next) >= mTree.mDataEnd) {
+             mCurNode = NULL;
+             return (mEventCode=END_DOCUMENT);
+@@ -1303,7 +1303,7 @@ ResXMLParser::event_code_t ResXMLParser::nextNode()
+                      (int)(((const uint8_t*)next)-((const uint8_t*)mTree.mHeader)));
+                 continue;
+         }
+-
++        
+         if ((totalSize-headerSize) < minExtSize) {
+             ALOGW("Bad XML block: header type 0x%x in node at 0x%x has size %d, need %d\n",
+                  (int)dtohs(next->header.type),
+@@ -1311,10 +1311,10 @@ ResXMLParser::event_code_t ResXMLParser::nextNode()
+                  (int)(totalSize-headerSize), (int)minExtSize);
+             return (mEventCode=BAD_DOCUMENT);
+         }
+-
++        
+         //printf("CurNode=%p, CurExt=%p, headerSize=%d, minExtSize=%d\n",
+         //       mCurNode, mCurExt, headerSize, minExtSize);
+-
++        
+         return eventCode;
+     } while (true);
+ }
+@@ -2341,7 +2341,7 @@ void ResTable_config::getBcp47Locale(char str[RESTABLE_MAX_LOCALE_LEN]) const {
+         charsWritten += sizeof(localeScript);
+     }
+ 
+-    if (country[0]) {
++        if (country[0]) {
+         if (charsWritten) {
+             str[charsWritten++] = '-';
+         }
+@@ -2717,7 +2717,7 @@ struct ResTable::Package
+             delete types[i];
+         }
+     }
+-
++    
+     ResTable* const                 owner;
+     const Header* const             header;
+     const ResTable_package* const   package;
+@@ -2725,7 +2725,7 @@ struct ResTable::Package
+ 
+     ResStringPool                   typeStrings;
+     ResStringPool                   keyStrings;
+-
++    
+     const Type* getType(size_t idx) const {
+         return idx < types.size() ? types[idx] : NULL;
+     }
+@@ -2775,18 +2775,18 @@ struct ResTable::PackageGroup
+             bags = NULL;
+         }
+     }
+-
++    
+     ResTable* const                 owner;
+     String16 const                  name;
+     uint32_t const                  id;
+     Vector<Package*>                packages;
+-
++    
+     // This is for finding typeStrings and other common package stuff.
+     Package*                        basePackage;
+ 
+     // For quick access.
+     size_t                          typeCount;
+-
++    
+     // Computed attribute bags, first indexed by the type and second
+     // by the entry in that type.
+     bag_set***                      bags;
+@@ -2935,7 +2935,7 @@ status_t ResTable::Theme::applyStyle(uint32_t resID, bool force)
+ 
+     //ALOGI("Applying style 0x%08x (force=%d)  theme %p...\n", resID, force, this);
+     //dumpToLog();
+-
++    
+     return NO_ERROR;
+ }
+ 
+@@ -2944,7 +2944,7 @@ status_t ResTable::Theme::setTo(const Theme& other)
+     //ALOGI("Setting theme %p from theme %p...\n", this, &other);
+     //dumpToLog();
+     //other.dumpToLog();
+-
++    
+     if (&mTable == &other.mTable) {
+         for (size_t i=0; i<Res_MAXPACKAGE; i++) {
+             if (mPackages[i] != NULL) {
+@@ -2974,7 +2974,7 @@ status_t ResTable::Theme::setTo(const Theme& other)
+ 
+     //ALOGI("Final theme:");
+     //dumpToLog();
+-
++    
+     return NO_ERROR;
+ }
+ 
+@@ -2984,7 +2984,7 @@ ssize_t ResTable::Theme::getAttribute(uint32_t resID, Res_value* outValue,
+     int cnt = 20;
+ 
+     if (outTypeSpecFlags != NULL) *outTypeSpecFlags = 0;
+-
++    
+     do {
+         const ssize_t p = mTable.getResourcePackageIndex(resID);
+         const uint32_t t = Res_GETTYPE(resID);
+@@ -3058,12 +3058,12 @@ void ResTable::Theme::dumpToLog() const
+     for (size_t i=0; i<Res_MAXPACKAGE; i++) {
+         package_info* pi = mPackages[i];
+         if (pi == NULL) continue;
+-
++        
+         ALOGI("  Package #0x%02x:\n", (int)(i+1));
+         for (size_t j=0; j<pi->numTypes; j++) {
+             type_info& ti = pi->types[j];
+             if (ti.numEntries == 0) continue;
+-
++            
+             ALOGI("    Type #0x%02x:\n", (int)(j+1));
+             for (size_t k=0; k<ti.numEntries; k++) {
+                 theme_entry& te = ti.entries[k];
+@@ -3125,11 +3125,11 @@ status_t ResTable::add(Asset* asset, const int32_t cookie, bool copyData, const
+ status_t ResTable::add(ResTable* src)
+ {
+     mError = src->mError;
+-
++    
+     for (size_t i=0; i<src->mHeaders.size(); i++) {
+         mHeaders.add(src->mHeaders[i]);
+     }
+-
++    
+     for (size_t i=0; i<src->mPackageGroups.size(); i++) {
+         PackageGroup* srcPg = src->mPackageGroups[i];
+         PackageGroup* pg = new PackageGroup(this, srcPg->name, srcPg->id);
+@@ -3140,9 +3140,9 @@ status_t ResTable::add(ResTable* src)
+         pg->typeCount = srcPg->typeCount;
+         mPackageGroups.add(pg);
+     }
+-
++    
+     memcpy(mPackageMap, src->mPackageMap, sizeof(mPackageMap));
+-
++    
+     return mError;
+ }
+ 
+@@ -3171,7 +3171,7 @@ status_t ResTable::addInternal(const void* data, size_t size, const int32_t cook
+     LOAD_TABLE_NOISY(
+         ALOGV("Adding resources to ResTable: data=%p, size=0x%x, cookie=%d, asset=%p, copy=%d "
+              "idmap=%p\n", data, size, cookie, asset, copyData, idmap));
+-
++    
+     if (copyData || notDeviceEndian) {
+         header->ownedData = malloc(size);
+         if (header->ownedData == NULL) {
+@@ -3503,7 +3503,7 @@ ssize_t ResTable::getResource(uint32_t resID, Res_value* outValue, bool mayBeBag
+             // are identical (diff == 0), or overlay packages will not take effect.
+             continue;
+         }
+-
++        
+         bestItem = thisConfig;
+         bestValue = item;
+         bestPackage = package;
+@@ -3697,7 +3697,7 @@ ssize_t ResTable::getBagLocked(uint32_t resID, const bag_entry** outBag,
+     bag_set* set = NULL;
+ 
+     TABLE_NOISY(ALOGI("Building bag: %p\n", (void*)resID));
+-
++    
+     ResTable_config bestConfig;
+     memset(&bestConfig, 0, sizeof(bestConfig));
+ 
+@@ -3763,7 +3763,7 @@ ssize_t ResTable::getBagLocked(uint32_t resID, const bag_entry** outBag,
+             ? dtohl(((const ResTable_map_entry*)entry)->parent.ident) : 0;
+         const uint32_t count = entrySize >= sizeof(ResTable_map_entry)
+             ? dtohl(((const ResTable_map_entry*)entry)->count) : 0;
+-
++        
+         size_t N = count;
+ 
+         TABLE_NOISY(ALOGI("Found map: size=%p parent=%p count=%d\n",
+@@ -3807,7 +3807,7 @@ ssize_t ResTable::getBagLocked(uint32_t resID, const bag_entry** outBag,
+         } else {
+             set->typeSpecFlags = -1;
+         }
+-
++        
+         // Now merge in the new attributes...
+         ssize_t curOff = offset;
+         const ResTable_map* map;
+@@ -4070,7 +4070,7 @@ nope:
+             TABLE_NOISY(printf("Expected type structure not found in package %s for idnex %d\n",
+                                String8(group->name).string(), ti));
+         }
+-
++        
+         size_t NTC = typeConfigs->configs.size();
+         for (size_t tci=0; tci<NTC; tci++) {
+             const ResTable_type* const ty = typeConfigs->configs[tci];
+@@ -4086,9 +4086,9 @@ nope:
+                 if (offset == ResTable_type::NO_ENTRY) {
+                     continue;
+                 }
+-
++                
+                 offset += typeOffset;
+-
++                
+                 if (offset > (dtohl(ty->header.size)-sizeof(ResTable_entry))) {
+                     ALOGW("ResTable_entry at %d is beyond type chunk data %d",
+                          offset, dtohl(ty->header.size));
+@@ -4102,7 +4102,7 @@ nope:
+                          String8(name, nameLen).string());
+                     return 0;
+                 }
+-
++                
+                 const ResTable_entry* const entry = (const ResTable_entry*)
+                     (((const uint8_t*)ty) + offset);
+                 if (dtohs(entry->size) < sizeof(*entry)) {
+@@ -4259,7 +4259,7 @@ static bool parse_unit(const char* str, Res_value* outValue,
+     if (*realEnd != 0) {
+         return false;
+     }
+-
++    
+     const unit_entry* cur = unitNames;
+     while (cur->name) {
+         if (len == cur->len && strncmp(cur->name, str, len) == 0) {
+@@ -4410,7 +4410,7 @@ bool ResTable::stringToFloat(const char16_t* s, size_t len, Res_value* outValue)
+             if (neg) {
+                 mantissa = (-mantissa) & Res_value::COMPLEX_MANTISSA_MASK;
+             }
+-            outValue->data |=
++            outValue->data |= 
+                 (radix<<Res_value::COMPLEX_RADIX_SHIFT)
+                 | (mantissa<<Res_value::COMPLEX_MANTISSA_SHIFT);
+             //printf("Input value: %f 0x%016Lx, mult: %f, radix: %d, shift: %d, final: 0x%08x\n",
+@@ -4523,7 +4523,7 @@ bool ResTable::stringToValue(Res_value* outValue, String16* outString,
+         // Note: we don't check attrType here because the reference can
+         // be to any other type; we just need to count on the client making
+         // sure the referenced type is correct.
+-
++        
+         //printf("Looking up ref: %s\n", String8(s, len).string());
+ 
+         // It's a reference!
+@@ -4610,7 +4610,7 @@ bool ResTable::stringToValue(Res_value* outValue, String16* outString,
+             }
+         }
+     }
+-
++    
+     if (*s == '#') {
+         // It's a color!  Convert to an integer of the form 0xaarrggbb.
+         uint32_t color = 0;
+@@ -4710,7 +4710,7 @@ bool ResTable::stringToValue(Res_value* outValue, String16* outString,
+         //       String8(package).string(), String8(type).string(),
+         //       String8(name).string());
+         uint32_t specFlags = 0;
+-        uint32_t rid =
++        uint32_t rid = 
+             identifierForName(name.string(), name.size(),
+                               type.string(), type.size(),
+                               package.string(), package.size(), &specFlags);
+@@ -4875,7 +4875,7 @@ bool ResTable::stringToValue(Res_value* outValue, String16* outString,
+                             return true;
+                         }
+                     }
+-
++    
+                 }
+                 bag++;
+                 cnt--;
+@@ -5240,43 +5240,43 @@ ssize_t ResTable::getEntry(
+             entryIndex, (int)allTypes->entryCount);
+         return BAD_TYPE;
+     }
+-
++        
+     const ResTable_type* type = NULL;
+     uint32_t offset = ResTable_type::NO_ENTRY;
+     ResTable_config bestConfig;
+     memset(&bestConfig, 0, sizeof(bestConfig)); // make the compiler shut up
+-
++    
+     const size_t NT = allTypes->configs.size();
+     for (size_t i=0; i<NT; i++) {
+         const ResTable_type* const thisType = allTypes->configs[i];
+         if (thisType == NULL) continue;
+-
++        
+         ResTable_config thisConfig;
+         thisConfig.copyFromDtoH(thisType->config);
+ 
+         TABLE_GETENTRY(ALOGI("Match entry 0x%x in type 0x%x (sz 0x%x): %s\n",
+                            entryIndex, typeIndex+1, dtohl(thisType->config.size),
+                            thisConfig.toString().string()));
+-
++        
+         // Check to make sure this one is valid for the current parameters.
+         if (config && !thisConfig.match(*config)) {
+             TABLE_GETENTRY(ALOGI("Does not match config!\n"));
+             continue;
+         }
+-
++        
+         // Check if there is the desired entry in this type.
+-
++        
+         const uint8_t* const end = ((const uint8_t*)thisType)
+             + dtohl(thisType->header.size);
+         const uint32_t* const eindex = (const uint32_t*)
+             (((const uint8_t*)thisType) + dtohs(thisType->header.headerSize));
+-
++        
+         uint32_t thisOffset = dtohl(eindex[entryIndex]);
+         if (thisOffset == ResTable_type::NO_ENTRY) {
+             TABLE_GETENTRY(ALOGI("Skipping because it is not defined!\n"));
+             continue;
+         }
+-
++        
+         if (type != NULL) {
+             // Check if this one is less specific than the last found.  If so,
+             // we will skip it.  We check starting with things we most care
+@@ -5286,19 +5286,19 @@ ssize_t ResTable::getEntry(
+                 continue;
+             }
+         }
+-
++        
+         type = thisType;
+         offset = thisOffset;
+         bestConfig = thisConfig;
+         TABLE_GETENTRY(ALOGI("Best entry so far -- using it!\n"));
+         if (!config) break;
+     }
+-
++    
+     if (type == NULL) {
+         TABLE_GETENTRY(ALOGI("No value found for requested entry!\n"));
+         return BAD_INDEX;
+     }
+-
++    
+     offset += dtohl(type->entriesStart);
+     TABLE_NOISY(aout << "Looking in resource table " << package->header->header
+           << ", typeOff="
+@@ -5363,7 +5363,7 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+              dtohl(pkg->keyStrings));
+         return (mError=BAD_TYPE);
+     }
+-
++    
+     Package* package = NULL;
+     PackageGroup* group = NULL;
+     uint32_t id = idmap_id != 0 ? idmap_id : dtohl(pkg->id);
+@@ -5372,12 +5372,12 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+     // always loaded alongside their idmaps, but during idmap creation
+     // the package is temporarily loaded by itself.
+     if (id < 256) {
+-
++    
+         package = new Package(this, header, pkg);
+         if (package == NULL) {
+             return (mError=NO_MEMORY);
+         }
+-
++        
+         size_t idx = mPackageMap[id];
+         if (idx == 0) {
+             idx = mPackageGroups.size()+1;
+@@ -5411,7 +5411,7 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+                 return (mError=err);
+             }
+             group->basePackage = package;
+-
++            
+             mPackageMap[id] = (uint8_t)idx;
+         } else {
+             group = mPackageGroups.itemAt(idx-1);
+@@ -5428,10 +5428,10 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+         return NO_ERROR;
+     }
+ 
+-
++    
+     // Iterate through all chunks.
+     size_t curPackage = 0;
+-
++    
+     const ResChunk_header* chunk =
+         (const ResChunk_header*)(((const uint8_t*)pkg)
+                                  + dtohs(pkg->header.headerSize));
+@@ -5450,9 +5450,9 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+             if (err != NO_ERROR) {
+                 return (mError=err);
+             }
+-
++            
+             const size_t typeSpecSize = dtohl(typeSpec->header.size);
+-
++            
+             LOAD_TABLE_NOISY(printf("TypeSpec off %p: type=0x%x, headerSize=0x%x, size=%p\n",
+                                     (void*)(base-(const uint8_t*)chunk),
+                                     dtohs(typeSpec->header.type),
+@@ -5468,12 +5468,12 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+                      (void*)typeSpecSize);
+                 return (mError=BAD_TYPE);
+             }
+-
++            
+             if (typeSpec->id == 0) {
+                 ALOGW("ResTable_type has an id of 0.");
+                 return (mError=BAD_TYPE);
+             }
+-
++            
+             while (package->types.size() < typeSpec->id) {
+                 package->types.add(NULL);
+             }
+@@ -5489,7 +5489,7 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+             t->typeSpecFlags = (const uint32_t*)(
+                     ((const uint8_t*)typeSpec) + dtohs(typeSpec->header.headerSize));
+             t->typeSpec = typeSpec;
+-
++            
+         } else if (ctype == RES_TABLE_TYPE_TYPE) {
+             const ResTable_type* type = (const ResTable_type*)(chunk);
+             err = validate_chunk(&type->header, sizeof(*type)-sizeof(ResTable_config)+4,
+@@ -5497,9 +5497,9 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+             if (err != NO_ERROR) {
+                 return (mError=err);
+             }
+-
++            
+             const uint32_t typeSize = dtohl(type->header.size);
+-
++            
+             LOAD_TABLE_NOISY(printf("Type off %p: type=0x%x, headerSize=0x%x, size=%p\n",
+                                     (void*)(base-(const uint8_t*)chunk),
+                                     dtohs(type->header.type),
+@@ -5523,7 +5523,7 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+                 ALOGW("ResTable_type has an id of 0.");
+                 return (mError=BAD_TYPE);
+             }
+-
++            
+             while (package->types.size() < type->id) {
+                 package->types.add(NULL);
+             }
+@@ -5536,7 +5536,7 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+                     (int)dtohl(type->entryCount), (int)t->entryCount);
+                 return (mError=BAD_TYPE);
+             }
+-
++            
+             TABLE_GETENTRY(
+                 ResTable_config thisConfig;
+                 thisConfig.copyFromDtoH(type->config);
+@@ -5557,14 +5557,14 @@ status_t ResTable::parsePackage(const ResTable_package* const pkg,
+     if (group->typeCount == 0) {
+         group->typeCount = package->types.size();
+     }
+-
++    
+     return NO_ERROR;
+ }
+ 
+ status_t ResTable::createIdmap(const ResTable& overlay,
+         uint32_t targetCrc, uint32_t overlayCrc,
+         const char* targetPath, const char* overlayPath,
+-        void** outData, size_t* outSize) const
++                               void** outData, size_t* outSize) const
+ {
+     // see README for details on the format of map
+     if (mPackageGroups.size() == 0) {
+@@ -5726,7 +5726,7 @@ bool ResTable::getIdmapInfo(const void* idmap, size_t sizeBytes,
+         *pTargetCrc = map[1];
+     }
+     if (pOverlayCrc) {
+-        *pOverlayCrc = map[2];
++    *pOverlayCrc = map[2];
+     }
+     if (pTargetPath) {
+         pTargetPath->setTo(reinterpret_cast<const char*>(map + 3));
+@@ -5757,7 +5757,7 @@ static void print_complex(uint32_t complex, bool isFraction)
+             * RADIX_MULTS[(complex>>Res_value::COMPLEX_RADIX_SHIFT)
+                             & Res_value::COMPLEX_RADIX_MASK];
+     printf("%f", value);
+-
++    
+     if (!isFraction) {
+         switch ((complex>>Res_value::COMPLEX_UNIT_SHIFT)&Res_value::COMPLEX_UNIT_MASK) {
+             case Res_value::COMPLEX_UNIT_PX: printf("px"); break;
+@@ -5832,7 +5832,7 @@ void ResTable::print_value(const Package* pkg, const Res_value& value) const
+             } else {
+                 printf("(string) null\n");
+             }
+-        }
++        } 
+     } else if (value.dataType == Res_value::TYPE_FLOAT) {
+         printf("(float) %g\n", *(const float*)&value.data);
+     } else if (value.dataType == Res_value::TYPE_DIMENSION) {
+@@ -5875,7 +5875,7 @@ void ResTable::print(bool inclValues) const
+         printf("Package Group %d id=%d packageCount=%d name=%s\n",
+                 (int)pgIndex, pg->id, (int)pg->packages.size(),
+                 String8(pg->name).string());
+-
++        
+         size_t pkgCount = pg->packages.size();
+         for (size_t pkgIndex=0; pkgIndex<pkgCount; pkgIndex++) {
+             const Package* pkg = pg->packages[pkgIndex];
+@@ -5942,17 +5942,17 @@ void ResTable::print(bool inclValues) const
+                         continue;
+                     }
+                     for (size_t entryIndex=0; entryIndex<entryCount; entryIndex++) {
+-
++                        
+                         const uint8_t* const end = ((const uint8_t*)type)
+                             + dtohl(type->header.size);
+                         const uint32_t* const eindex = (const uint32_t*)
+                             (((const uint8_t*)type) + dtohs(type->header.headerSize));
+-
++                        
+                         uint32_t thisOffset = dtohl(eindex[entryIndex]);
+                         if (thisOffset == ResTable_type::NO_ENTRY) {
+                             continue;
+                         }
+-
++                        
+                         uint32_t resID = (0xff000000 & ((pkg->package->id)<<24))
+                                     | (0x00ff0000 & ((typeIndex+1)<<16))
+                                     | (0x0000ffff & (entryIndex));
+@@ -5985,7 +5985,7 @@ void ResTable::print(bool inclValues) const
+                                    entriesStart, thisOffset, typeSize);
+                             continue;
+                         }
+-
++                        
+                         const ResTable_entry* ent = (const ResTable_entry*)
+                             (((const uint8_t*)type) + entriesStart + thisOffset);
+                         if (((entriesStart + thisOffset)&0x3) != 0) {
+@@ -5993,10 +5993,10 @@ void ResTable::print(bool inclValues) const
+                                  (entriesStart + thisOffset));
+                             continue;
+                         }
+-
++                        
+                         uintptr_t esize = dtohs(ent->size);
+                         if ((esize&0x3) != 0) {
+-                            printf("NON-INTEGER ResTable_entry SIZE: %p\n", (void *)esize);
++                            printf("NON-INTEGER ResTable_entry SIZE: %p\n", (void*)esize);
+                             continue;
+                         }
+                         if ((thisOffset+esize) > typeSize) {
+@@ -6004,7 +6004,7 @@ void ResTable::print(bool inclValues) const
+                                    entriesStart, thisOffset, (void *)esize, typeSize);
+                             continue;
+                         }
+-
++                            
+                         const Res_value* valuePtr = NULL;
+                         const ResTable_map_entry* bagPtr = NULL;
+                         Res_value value;
+@@ -6019,12 +6019,12 @@ void ResTable::print(bool inclValues) const
+                                    (int)value.dataType, (int)value.data,
+                                    (int)value.size, (int)value.res0);
+                         }
+-
++                        
+                         if ((dtohs(ent->flags)&ResTable_entry::FLAG_PUBLIC) != 0) {
+                             printf(" (PUBLIC)");
+                         }
+                         printf("\n");
+-
++                        
+                         if (inclValues) {
+                             if (valuePtr != NULL) {
+                                 printf("          ");
+diff --git a/tools/aapt/CMakeLists.txt b/tools/aapt/CMakeLists.txt
+new file mode 100644
+index 0000000..4f4fc06
+--- /dev/null
++++ b/tools/aapt/CMakeLists.txt
+@@ -0,0 +1,34 @@
++project(aapt)
++
++find_package(ZLIB REQUIRED)
++find_package(EXPAT REQUIRED)
++find_package(PNG REQUIRED)
++find_package(ZLIB REQUIRED)
++find_package(Android REQUIRED)
++
++include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../../include ${ANDROID_INCLUDE_DIRS} ${EXPAT_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS})
++
++set(SRC_LIST AaptAssets.cpp
++    Command.cpp
++	  CrunchCache.cpp
++	  FileFinder.cpp
++	  Main.cpp
++	  Package.cpp
++	  StringPool.cpp
++	  XMLNode.cpp
++	  ResourceFilter.cpp
++	  ResourceIdCache.cpp
++	  ResourceTable.cpp
++	  Images.cpp
++	  Resource.cpp
++    pseudolocalize.cpp
++    SourcePos.cpp
++	  WorkQueue.cpp
++    ZipEntry.cpp
++    ZipFile.cpp
++	  qsort_r_compat.c)
++
++
++add_executable (aapt ${SRC_LIST}) 
++target_link_libraries(aapt androidfw ${ANDROID_LIBRARIES} ${EXPAT_LIBRARIES} ${PNG_LIBRARIES} ${ZLIB_LIBRARIES})
++install (TARGETS aapt DESTINATION ${INSTALL_BIN_DIR})
+diff --git a/tools/aapt/StringPool.h b/tools/aapt/StringPool.h
+index 1b3abfd..89c8c90 100644
+--- a/tools/aapt/StringPool.h
++++ b/tools/aapt/StringPool.h
+@@ -20,7 +20,7 @@
+ #include <ctype.h>
+ #include <errno.h>
+ 
+-#include <libexpat/expat.h>
++#include <expat.h>
+ 
+ using namespace android;
+ 
+diff --git a/tools/aidl/CMakeLists.txt b/tools/aidl/CMakeLists.txt
+new file mode 100644
+index 0000000..299239f
+--- /dev/null
++++ b/tools/aidl/CMakeLists.txt
+@@ -0,0 +1,25 @@
++project(aidl)
++find_package(BISON)
++find_package(FLEX)
++
++BISON_TARGET(aidl_language_y aidl_language_y.y ${CMAKE_CURRENT_BINARY_DIR}/aidl_language_y.cpp)
++FLEX_TARGET(aidl_language_l aidl_language_l.l ${CMAKE_CURRENT_BINARY_DIR}/aidl_language_l.cpp)
++ADD_FLEX_BISON_DEPENDENCY(aidl_language_l aidl_language_y)
++
++include_directories(${CMAKE_CURRENT_SOURCE_DIR})
++
++set(SRC_LIST 	
++	aidl.cpp
++	aidl_language.cpp
++	options.cpp
++	search_path.cpp
++	AST.cpp
++	Type.cpp
++	generate_java.cpp
++	generate_java_binder.cpp
++	generate_java_rpc.cpp)
++
++add_executable (aidl ${SRC_LIST} ${BISON_aidl_language_y_OUTPUTS} ${FLEX_aidl_language_l_OUTPUTS}) 
++
++
++install (TARGETS aidl DESTINATION ${INSTALL_BIN_DIR})
+diff --git a/tools/aidl/aidl_language_l.l b/tools/aidl/aidl_language_l.l
+index 3d33e7a..7e59b0d 100644
+--- a/tools/aidl/aidl_language_l.l
++++ b/tools/aidl/aidl_language_l.l
+@@ -1,6 +1,6 @@
+ %{
+ #include "aidl_language.h"
+-#include "aidl_language_y.h"
++#include "aidl_language_y.hpp"
+ #include "search_path.h"
+ #include <string.h>
+ #include <stdlib.h>
+diff --git a/tools/obbtool/CMakeLists.txt b/tools/obbtool/CMakeLists.txt
+new file mode 100644
+index 0000000..54ba250
+--- /dev/null
++++ b/tools/obbtool/CMakeLists.txt
+@@ -0,0 +1,14 @@
++project(obbtool)
++
++find_package(Threads REQUIRED)
++find_package(Android REQUIRED)
++
++include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../../include ${ANDROID_INCLUDE_DIRS})
++
++set(SRC_LIST Main.cpp)
++
++add_executable (obbtool ${SRC_LIST}) 
++target_link_libraries(obbtool androidfw ${ANDROID_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
++
++
++install (TARGETS obbtool DESTINATION ${INSTALL_BIN_DIR})

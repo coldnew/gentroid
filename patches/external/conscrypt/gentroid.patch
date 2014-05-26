@@ -1,0 +1,76 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+new file mode 100644
+index 0000000..ed2d22d
+--- /dev/null
++++ b/CMakeLists.txt
+@@ -0,0 +1,19 @@
++project(conscrypt)
++cmake_minimum_required(VERSION 2.8)
++
++include(/usr/share/android/cmake/AndroidConfig.cmake)
++find_package(Android REQUIRED nativehelper javacore )
++find_package(OpenSSL REQUIRED)
++
++add_definitions(-DJNI_JARJAR_PREFIX="com/android/" -std=gnu++11 -Wall -Wextra)
++
++include_directories ( ${ANDROID_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
++
++add_library(${PROJECT_NAME} SHARED src/main/native/org_conscrypt_NativeCrypto.cpp)
++SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES LINK_FLAGS -Wl,--no-undefined)
++target_link_libraries(${PROJECT_NAME} ${ANDROID_LIBRARIES} ${OPENSSL_LIBRARIES})
++
++
++install(TARGETS ${PROJECT_NAME} DESTINATION ${INSTALL_LIB_DIR})
++
++
+diff --git a/build.xml b/build.xml
+new file mode 100644
+index 0000000..0cf49ab
+--- /dev/null
++++ b/build.xml
+@@ -0,0 +1,45 @@
++
++
++<project name="cinscrypt" default="dist" basedir=".">
++	<property name="boot" location="boot"/>
++	<property name="dist" location="dist"/>
++	<property name="lib" location="lib"/>
++	<property name="build" location="build"/>
++	<property name="jar" location="jar"/>
++
++	<path id="extlibs">
++		<fileset dir="lib">
++			<include name="*.jar"/>
++		</fileset>
++		<fileset dir="dist">
++			<include name="*.jar"/>
++		</fileset>
++	</path>
++	
++
++	<target name="init">
++    <tstamp/>
++		<mkdir dir="${build}"/>
++		<tstamp/>
++    <mkdir dir="${dist}"/>
++		<tstamp/>
++		<mkdir dir="${boot}"/>
++	</target>
++
++  	<target name="compile" depends="init" description="compile the source " >
++		<javac source="7" target="1.7" encoding="UTF-8" destdir="${build}" includeantruntime="false" >
++			<classpath path=""/>
++			<bootclasspath path="lib/core.jar"/>
++			<src path="src/main/java"/>
++			<include name="**/*.java"/>
++		</javac>
++	</target>
++
++	<target name="clean"
++		description="clean up" >
++		<!-- Delete the ${build} and ${dist} directory trees -->
++		<delete dir="${build}"/>
++		<delete dir="${dist}"/>
++	</target>
++
++</project>
