@@ -774,29 +774,47 @@ index 0000000..761d5a7
 +
 +#endif /* _ELF_H */
 diff --git a/runtime/class_linker.cc b/runtime/class_linker.cc
-index c7302b5..ca97367 100644
+index c7302b5..58b5d7b 100644
 --- a/runtime/class_linker.cc
 +++ b/runtime/class_linker.cc
-@@ -563,9 +563,14 @@ bool ClassLinker::GenerateOatFile(const char* dex_filename,
+@@ -563,8 +563,11 @@ bool ClassLinker::GenerateOatFile(const char* dex_filename,
                                    const char* oat_cache_filename,
                                    std::string* error_msg) {
    Locks::mutator_lock_->AssertNotHeld(Thread::Current());  // Avoid starving GC.
 -  std::string dex2oat(GetAndroidRoot());
 -  dex2oat += (kIsDebugBuild ? "/bin/dex2oatd" : "/bin/dex2oat");
--
-+  const char* env_dex2oat = getenv("DEX2OAT");
-+  std::string dex2oat;
-+  if (env_dex2oat == nullptr) {
++  std::string dex2oat("dex2oat");
++  if (kIsTargetBuild) {
 +    dex2oat = GetAndroidRoot();
-+    dex2oat += "/bin/dex2oat";
-+  } else {
-+    dex2oat = env_dex2oat;
++    dex2oat += (kIsDebugBuild ? "/bin/dex2oatd" : "/bin/dex2oat");
 +  }
+ 
    gc::Heap* heap = Runtime::Current()->GetHeap();
    std::string boot_image_option("--boot-image=");
-   boot_image_option += heap->GetImageSpace()->GetImageLocation();
+@@ -579,8 +582,12 @@ bool ClassLinker::GenerateOatFile(const char* dex_filename,
+   std::string oat_location_option("--oat-location=");
+   oat_location_option += oat_cache_filename;
+ 
++  std::string android_root_option("--android-root=");
++  android_root_option += GetAndroidRoot();
++
+   std::vector<std::string> argv;
+   argv.push_back(dex2oat);
++  argv.push_back(android_root_option);
+   argv.push_back("--runtime-arg");
+   argv.push_back("-Xms64m");
+   argv.push_back("--runtime-arg");
+@@ -609,7 +616,7 @@ bool ClassLinker::GenerateOatFile(const char* dex_filename,
+     argv.push_back(compiler_options[i].c_str());
+   }
+ 
+-  return Exec(argv, error_msg);
++  return Exec(argv, error_msg, kIsTargetBuild);
+ }
+ 
+ const OatFile* ClassLinker::RegisterOatFile(const OatFile* oat_file) {
 diff --git a/runtime/common_runtime_test.h b/runtime/common_runtime_test.h
-index bac212a..defaadf 100644
+index bac212a..0e30866 100644
 --- a/runtime/common_runtime_test.h
 +++ b/runtime/common_runtime_test.h
 @@ -26,7 +26,7 @@
@@ -865,7 +883,7 @@ index bac212a..defaadf 100644
 +      return StringPrintf("%s", host_dir);
      }
 -    return StringPrintf("%s/framework/%s.jar", GetAndroidRoot(), jar_prefix.c_str());
-+    return StringPrintf("%s/test/%s.jar", GetAndroidRoot(), jar_prefix.c_str());
++    return GetAndroidRoot() + "/test/" + jar_prefix + ".jar";
    }
  
    std::string GetTestAndroidRoot() {
@@ -7867,27 +7885,40 @@ index 0000000..dd8e44c
 +
 +#endif /* MALLOC_280_H */
 diff --git a/runtime/gc/space/image_space.cc b/runtime/gc/space/image_space.cc
-index 6ea94a9..607f2ea 100644
+index 6ea94a9..0932180 100644
 --- a/runtime/gc/space/image_space.cc
 +++ b/runtime/gc/space/image_space.cc
-@@ -52,9 +52,14 @@ static bool GenerateImage(const std::string& image_filename, std::string* error_
-   }
+@@ -53,10 +53,19 @@ static bool GenerateImage(const std::string& image_filename, std::string* error_
  
    std::vector<std::string> arg_vector;
--
+ 
 -  std::string dex2oat(GetAndroidRoot());
 -  dex2oat += (kIsDebugBuild ? "/bin/dex2oatd" : "/bin/dex2oat");
-+  std::string dex2oat;
-+  const char* env_dex2oat = getenv("DEX2OAT");
-+  if (env_dex2oat == nullptr) {
++  std::string dex2oat("dex2oat");
++  if (kIsTargetBuild) {
 +    dex2oat = GetAndroidRoot();
 +    dex2oat += (kIsDebugBuild ? "/bin/dex2oatd" : "/bin/dex2oat");
-+  } else {
-+    dex2oat = env_dex2oat;
 +  }
++
++  std::string android_root_option("--android-root=");
++  android_root_option += GetAndroidRoot();
++
    arg_vector.push_back(dex2oat);
  
++  arg_vector.push_back(android_root_option);
++
    std::string image_option_string("--image=");
+   image_option_string += image_filename;
+   arg_vector.push_back(image_option_string);
+@@ -96,7 +105,7 @@ static bool GenerateImage(const std::string& image_filename, std::string* error_
+ 
+   std::string command_line(Join(arg_vector, ' '));
+   LOG(INFO) << "GenerateImage: " << command_line;
+-  return Exec(arg_vector, error_msg);
++  return Exec(arg_vector, error_msg, kIsTargetBuild);
+ }
+ 
+ bool ImageSpace::FindImageFilename(const char* image_location,
 diff --git a/runtime/gc/space/malloc_space.h b/runtime/gc/space/malloc_space.h
 index d24016c..f220a77 100644
 --- a/runtime/gc/space/malloc_space.h
@@ -7927,6 +7958,165 @@ index 34fe0bf..644cb55 100644
 +#define SIZE_OF_ART_METHOD (sizeof(art::mirror::ArtMethod) + 12)
 +
  #endif  // ART_RUNTIME_MIRROR_ART_METHOD_H_
+diff --git a/runtime/utils.cc b/runtime/utils.cc
+index f562252..55ba5df 100644
+--- a/runtime/utils.cc
++++ b/runtime/utils.cc
+@@ -1130,14 +1130,43 @@ void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool inclu
+ 
+ #endif
+ 
+-const char* GetAndroidRoot() {
++std::string GetAndroidHome() {
++  const char* home = getenv("HOME");
++  if (home == NULL || !OS::DirectoryExists(home)) {
++    PLOG(FATAL) << "HOME directory doesn't exist";
++    return "";
++  }
++  std::string android_home(home);
++  android_home += "/.android";
++  if(mkdir(android_home.c_str(), 0700) != 0) {
++    if (errno != EEXIST) {
++      PLOG(FATAL) << "Failed to create " << android_home << " directory";
++      return "";
++    }
++  }
++  return android_home;
++}
++
++
++std::string GetAndroidRoot() {
+   const char* android_root = getenv("ANDROID_ROOT");
+   if (android_root == NULL) {
+-    if (OS::DirectoryExists("/system")) {
+-      android_root = "/system";
++    if (kIsTargetBuild) {
++      if (OS::DirectoryExists("/system")) {
++        android_root = "/system";
++      } else {
++        LOG(FATAL) << "ANDROID_ROOT not set and /system does not exist";
++        return "";
++      }
+     } else {
+-      LOG(FATAL) << "ANDROID_ROOT not set and /system does not exist";
+-      return "";
++      std::string host_root = GetAndroidHome() + "/system";
++      if(mkdir(host_root.c_str(), 0700) != 0) {
++        if (errno != EEXIST) {
++          PLOG(FATAL) << "Failed to create " << host_root << " directory";
++          return "";
++        }
++      }
++      return host_root;
+     }
+   }
+   if (!OS::DirectoryExists(android_root)) {
+@@ -1147,14 +1176,25 @@ const char* GetAndroidRoot() {
+   return android_root;
+ }
+ 
+-const char* GetAndroidData() {
++std::string GetAndroidData() {
+   const char* android_data = getenv("ANDROID_DATA");
+   if (android_data == NULL) {
+-    if (OS::DirectoryExists("/data")) {
+-      android_data = "/data";
++    if (kIsTargetBuild) {
++      if (OS::DirectoryExists("/data")) {
++        return "/data";
++      } else {
++        LOG(FATAL) << "ANDROID_DATA not set and /data does not exist";
++        return "";
++      }
+     } else {
+-      LOG(FATAL) << "ANDROID_DATA not set and /data does not exist";
+-      return "";
++      std::string host_data = GetAndroidHome() + "/data";
++      if(mkdir(host_data.c_str(), 0700) != 0) {
++        if (errno != EEXIST) {
++          PLOG(FATAL) << "Failed to create " << host_data << "directory";
++          return "";
++        }
++      }
++      return host_data;
+     }
+   }
+   if (!OS::DirectoryExists(android_data)) {
+@@ -1166,12 +1206,12 @@ const char* GetAndroidData() {
+ 
+ std::string GetDalvikCacheOrDie(const char* subdir, const bool create_if_absent) {
+   CHECK(subdir != nullptr);
+-  const char* android_data = GetAndroidData();
+-  const std::string dalvik_cache_root(StringPrintf("%s/dalvik-cache/", android_data));
++  const std::string android_data = GetAndroidData();
++  const std::string dalvik_cache_root = android_data + "/dalvik-cache/";
+   const std::string dalvik_cache = dalvik_cache_root + subdir;
+   if (create_if_absent && !OS::DirectoryExists(dalvik_cache.c_str())) {
+     // Don't create the system's /data/dalvik-cache/... because it needs special permissions.
+-    if (strcmp(android_data, "/data") != 0) {
++    if (android_data.compare("/data") != 0) {
+       int result = mkdir(dalvik_cache_root.c_str(), 0700);
+       if (result != 0 && errno != EEXIST) {
+         PLOG(FATAL) << "Failed to create dalvik-cache directory " << dalvik_cache_root;
+@@ -1249,7 +1289,7 @@ bool IsOatMagic(uint32_t magic) {
+                  sizeof(OatHeader::kOatMagic)) == 0);
+ }
+ 
+-bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg) {
++bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg, bool abs_path) {
+   const std::string command_line(Join(arg_vector, ' '));
+ 
+   CHECK_GE(arg_vector.size(), 1U) << command_line;
+@@ -1272,11 +1312,15 @@ bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg) {
+ 
+     // change process groups, so we don't get reaped by ProcessManager
+     setpgid(0, 0);
+-
+-    execv(program, &args[0]);
+-
+-    PLOG(ERROR) << "Failed to execv(" << command_line << ")";
+-    exit(1);
++    if (abs_path) {
++      execv(program, &args[0]);
++      PLOG(ERROR) << "Failed to execv(" << command_line << ")";
++      exit(1);
++    } else {
++      execvp(program, &args[0]);
++      PLOG(ERROR) << "Failed to execvp(" << command_line << ")";
++      exit(1);
++    }
+   } else {
+     if (pid == -1) {
+       *error_msg = StringPrintf("Failed to execv(%s) because fork failed: %s",
+diff --git a/runtime/utils.h b/runtime/utils.h
+index 4a9236a..cb659a5 100644
+--- a/runtime/utils.h
++++ b/runtime/utils.h
+@@ -389,10 +389,13 @@ void DumpNativeStack(std::ostream& os, pid_t tid, const char* prefix = "",
+ void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix = "", bool include_count = true);
+ 
+ // Find $ANDROID_ROOT, /system, or abort.
+-const char* GetAndroidRoot();
++std::string GetAndroidRoot();
+ 
+ // Find $ANDROID_DATA, /data, or abort.
+-const char* GetAndroidData();
++std::string GetAndroidData();
++
++// Find or create $HOME/.android or abort.
++std::string GetAndroidHome();
+ 
+ // Returns the dalvik-cache location, or dies trying. subdir will be
+ // appended to the cache location.
+@@ -416,7 +419,7 @@ bool IsDexMagic(uint32_t magic);
+ bool IsOatMagic(uint32_t magic);
+ 
+ // Wrapper on fork/execv to run a command in a subprocess.
+-bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg);
++bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg, bool abs_path = true);
+ 
+ class VoidFunctor {
+  public:
 diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
 new file mode 100644
 index 0000000..2d99d9f
