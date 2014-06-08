@@ -321,7 +321,7 @@ index 0000000..94cc992
 +
 +
 diff --git a/libbacktrace/UnwindMap.cpp b/libbacktrace/UnwindMap.cpp
-index 1615518..11d8ad7 100644
+index 4f9831b..a06064d 100644
 --- a/libbacktrace/UnwindMap.cpp
 +++ b/libbacktrace/UnwindMap.cpp
 @@ -13,7 +13,7 @@
@@ -331,11 +331,11 @@ index 1615518..11d8ad7 100644
 -
 +#include <stdlib.h>
  #include <pthread.h>
+ #include <stdlib.h>
  #include <sys/types.h>
- #include <unistd.h>
 diff --git a/libcutils/CMakeLists.txt b/libcutils/CMakeLists.txt
 new file mode 100644
-index 0000000..1ffe770
+index 0000000..9186c7e
 --- /dev/null
 +++ b/libcutils/CMakeLists.txt
 @@ -0,0 +1,67 @@
@@ -343,10 +343,9 @@ index 0000000..1ffe770
 +
 +include_directories ("${PROJECT_SOURCE_DIR}/include")
 +include_directories ("${PROJECT_SOURCE_DIR}/../include")
-+include_directories(${PROJECT_BINARY_DIR})
++include_directories (${PROJECT_BINARY_DIR})
 +
-+set(COMMON_SRC_LIST 
-+	hashmap.c
++set (COMMON_SRC_LIST hashmap.c
 +	atomic.c
 +	native_handle.c
 +	socket_inaddr_any_server.c
@@ -371,10 +370,10 @@ index 0000000..1ffe770
 +	properties.c
 +	multiuser.c
 +	fs.c
++	memory.c
 +	)
 +
-+set(TARGET_SRC_LIST array.c
-+        android_reboot.c
++set (TARGET_SRC_LIST android_reboot.c
 +        ashmem-dev.c
 +        debugger.c
 +        klog.c
@@ -384,40 +383,29 @@ index 0000000..1ffe770
 +		trace.c
 +        uevent.c)
 +
-+set(HOST_SRC_LIST ashmem-host.c)
 +
-+
-+if(${ARCH} MATCHES "x86")
-+	set(SRC_LIST ${SRC_LIST} ${COMMON_SRC_LIST} arch-x86/android_memset16.S arch-x86/android_memset32.S memory.c)
++if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86")
++	set(SRC_LIST ${COMMON_SRC_LIST} arch-x86/android_memset16.S arch-x86/android_memset32.S)
 +	add_definitions(-DHAVE_MEMSET16 -DHAVE_MEMSET32)
-+elseif(${ARCH} MATCHES "arm")
-+	set(SRC_LIST ${SRC_LIST} ${COMMON_SRC_LIST} arch-arm/memset32.S)
-+else()
-+	set(SRC_LIST ${SRC_LIST} ${COMMON_SRC_LIST} memory.c)
-+endif()
++elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
++	set(SRC_LIST ${COMMON_SRC_LIST}   arch-x86_64/android_memset16_SSE2-atom.S arch-x86_64/android_memset32_SSE2-atom.S)
++	add_definitions(-DHAVE_MEMSET16 -DHAVE_MEMSET32)
++elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm")
++	set(SRC_LIST ${COMMON_SRC_LIST} arch-arm/memset32.S)
++else ()
++	set(SRC_LIST ${COMMON_SRC_LIST})
++endif ()
 +
 +
-+add_library(cutils SHARED ${SRC_LIST} ${HOST_SRC_LIST})
-+SET_TARGET_PROPERTIES(cutils PROPERTIES LINK_FLAGS -Wl,--no-undefined)
-+target_link_libraries(cutils log ${CMAKE_THREAD_LIBS_INIT})
++add_library (cutils SHARED ${SRC_LIST})
++SET_TARGET_PROPERTIES (cutils PROPERTIES LINK_FLAGS -Wl,--no-undefined)
++target_link_libraries (cutils log ${CMAKE_THREAD_LIBS_INIT})
 +
-+install(TARGETS cutils DESTINATION ${INSTALL_LIB_DIR})
-+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/cutils DESTINATION ${INSTALL_INCLUDE_DIR} FILES_MATCHING PATTERN "*.h")
++install (TARGETS cutils DESTINATION ${INSTALL_LIB_DIR})
++install (DIRECTORY ${PROJECT_SOURCE_DIR}/include/cutils DESTINATION ${INSTALL_INCLUDE_DIR} FILES_MATCHING PATTERN "*.h")
 +
 +
 +
-diff --git a/libcutils/dlmalloc_stubs.c b/libcutils/dlmalloc_stubs.c
-index 6dca911..2db473d 100644
---- a/libcutils/dlmalloc_stubs.c
-+++ b/libcutils/dlmalloc_stubs.c
-@@ -14,7 +14,6 @@
-  * limitations under the License.
-  */
- 
--#include "../../../bionic/libc/bionic/dlmalloc.h"
- #include "log/log.h"
- 
- #define UNUSED __attribute__((__unused__))
 diff --git a/libcutils/memory.c b/libcutils/memory.c
 index 6486b45..887a7a6 100644
 --- a/libcutils/memory.c
@@ -496,19 +484,6 @@ index 0000000..37f0e13
 +
 +install(TARGETS sparse DESTINATION ${INSTALL_LIB_DIR})
 +install(DIRECTORY ${PROJECT_SOURCE_DIR}/sparse/include/sparse DESTINATION ${INSTALL_INCLUDE_DIR}/sparse FILES_MATCHING PATTERN "*.h")
-diff --git a/libutils/BlobCache.cpp b/libutils/BlobCache.cpp
-index 660917b..a28fd04 100644
---- a/libutils/BlobCache.cpp
-+++ b/libutils/BlobCache.cpp
-@@ -49,7 +49,7 @@ BlobCache::BlobCache(size_t maxKeySize, size_t maxValueSize, size_t maxTotalSize
-     mRandState[1] = (now >> 16) & 0xFFFF;
-     mRandState[2] = (now >> 32) & 0xFFFF;
- #endif
--    ALOGV("initializing random seed using %lld", now);
-+    ALOGV("initializing random seed using %ld", now);
- }
- 
- void BlobCache::set(const void* key, size_t keySize, const void* value,
 diff --git a/libutils/CMakeLists.txt b/libutils/CMakeLists.txt
 new file mode 100644
 index 0000000..8ce6ec2
@@ -569,7 +544,7 @@ index 0000000..bdcfa04
 +install(TARGETS ziparchive DESTINATION ${INSTALL_LIB_DIR})
 +install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ziparchive DESTINATION ${INSTALL_INCLUDE_DIR} FILES_MATCHING PATTERN "*.h")
 diff --git a/libziparchive/zip_archive.cc b/libziparchive/zip_archive.cc
-index 6781ebe..b054eb6 100644
+index df5e3bd..e555522 100644
 --- a/libziparchive/zip_archive.cc
 +++ b/libziparchive/zip_archive.cc
 @@ -31,7 +31,7 @@
