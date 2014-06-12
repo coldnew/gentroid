@@ -12,6 +12,7 @@ function (_check_android_components)
 	# List of the valid Android components
 	set(ANDROID_VALID_COMPONENTS
 		javacore
+		native
 		nativehelper
 		syscore
 		fdm
@@ -52,6 +53,10 @@ function (_find_android_libraries)
 
 	set(javacore_LIBS
 		javacore)
+
+	set(native_LIBS android_sqlite
+		ipc
+		ui)
 
 	foreach(_component ${Android_FIND_COMPONENTS})
 		set(ANDROID_${_component}_FOUND true)
