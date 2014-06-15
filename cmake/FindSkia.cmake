@@ -15,13 +15,9 @@ function (_check_skia_components)
 	# List of the valid Skia components
 	set (SKIA_VALID_COMPONENTS
 		animator
-		effects
 		images
-		opts
 		pdf
-		ports
 		sfnt
-		gpu
 		utils
 		views
 		xml)
@@ -40,7 +36,7 @@ function (_check_skia_components)
         message ( FATAL_ERROR "\"${_REQ_COMPONENTS}\" is not a valid Skia component.")
 	endif ()
 	endif ()
-	list (APPEND _COMPONENT_LIST 0 core)
+	list (APPEND _COMPONENT_LIST core effects opts gpu ports)
 	#for FIND_PACKAGE_HANDLE_STANDARD_ARGS
 	set (Skia_FIND_COMPONENTS ${_COMPONENT_LIST} PARENT_SCOPE)
 endfunction ()
@@ -55,7 +51,7 @@ function (_find_skia_libraries)
 	set (pdf_LIBS pdf)
 	set (ports_LIBS ports)
 	set (sfnt_LIBS sfnt)
-	set (gpu_LIBS gpu)
+	set (gpu_LIBS skgpu)
 	set (utils_LIBS utils)
 	set (views_LIBS views)
 	set (xml_LIBS xml)
@@ -117,7 +113,9 @@ _find_skia_incdirs ()
 
 set (SKIA_CFLAGS -DSK_ATOMICS_PLATFORM_H="SkAtomics_sync.h" -DSK_MUTEX_PLATFORM_H="SkMutex_pthread.h" -D SK_SUPPORT_LEGACY_SETCONFIG_INFO
 		-D SK_SUPPORT_LEGACY_DEVICE_CONFIG -D SK_SUPPORT_LEGACY_SETCONFIG -D SK_SUPPORT_LEGACY_CLIPTOLAYERFLAG
-    	-D SK_ATTR_DEPRECATED=SK_NOTHING_ARG1 -D SK_SUPPORT_LEGACY_SHADER_LOCALMATRIX -D SK_SUPPORT_LEGACY_COMPUTE_CONFIG_SIZE -D SK_SUPPORT_LEGACY_ASIMAGEINFO)
+    	-D SK_ATTR_DEPRECATED=SK_NOTHING_ARG1 -D SK_SUPPORT_LEGACY_SHADER_LOCALMATRIX -D SK_SUPPORT_LEGACY_COMPUTE_CONFIG_SIZE 
+		-D SK_SUPPORT_LEGACY_ASIMAGEINFO -D SK_SUPPORT_LEGACY_LAYERRASTERIZER_API -D SK_SUPPORT_DEPRECATED_SCALARROUND
+		-D SK_BUILD_FOR_GENTROID -D SK_RELEASE)
 
 if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "x86_64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "x86")
 	list (APPEND SKIA_CFLAGS -DSK_BARRIERS_PLATFORM_H="SkBarriers_x86.h")

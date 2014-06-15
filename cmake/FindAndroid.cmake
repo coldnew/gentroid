@@ -32,7 +32,7 @@ function (_check_android_components)
         message( FATAL_ERROR "\"${_REQ_COMPONENTS}\" is not a valid Android component.")
 	endif()
 	endif()
-	list(APPEND _COMPONENT_LIST 0 minimal)
+	list(APPEND _COMPONENT_LIST minimal)
 	#for FIND_PACKAGE_HANDLE_STANDARD_ARGS
 	set(Android_FIND_COMPONENTS ${_COMPONENT_LIST} PARENT_SCOPE)
 endfunction()
