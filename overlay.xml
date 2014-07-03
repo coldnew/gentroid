@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE repositories SYSTEM "/dtd/repositories.dtd">
+<repositories xmlns="" version="1.0">
+	<repo quality="experimental" status="unofficial">
+		<name>gentroid</name>
+		<description lang="en">Android for Gentoo</description>
+		<homepage>https://code.google.com/p/gentroid</homepage>
+		<owner type="person">
+		<email>gentroid@simon-maurer.ch</email>
+		<name>Simon Maurer</name>
+		</owner>
+		<source type="git">https://code.google.com/p/gentroid/gentroid.portage</source>
+	</repo>
+</repositories>
