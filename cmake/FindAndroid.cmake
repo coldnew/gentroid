@@ -43,7 +43,8 @@ function (_find_android_libraries)
 		log)	
 
 	set(syscore_LIBS ziparchive
-		backtrace)
+		backtrace
+		nativebridge)
 
 	set(nativehelper_LIBS
 		nativehelper)
